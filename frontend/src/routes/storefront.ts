@@ -546,8 +546,9 @@ function storeLayout(
             const key = item.cartKey || item.id;
             return \`
             <div class="flex items-center gap-3 bg-page rounded-xl p-3">
-              <img src="\${item.image || 'https://via.placeholder.com/60'}" alt="\${item.name}" 
-                   class="w-14 h-14 object-cover rounded-lg flex-shrink-0">
+              <img src="\${item.image || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Crect width='400' height='400' fill='%23f1f5f9'/%3E%3Cpath d='M160 160c0-22.1 17.9-40 40-40s40 17.9 40 40-17.9 40-40 40-40-17.9-40-40zm120 120H120l50-65 35 45 25-30 50 50z' fill='%2394a3b8'/%3E%3Ctext x='50%25' y='82%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='16' font-weight='bold' fill='%2364748b'%3Eلا توجد صورة%3C/text%3E%3C/svg%3E"}" alt="\${item.name}" 
+                   class="w-14 h-14 object-cover rounded-lg flex-shrink-0"
+                   onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' viewBox=\\'0 0 400 400\\'%3E%3Crect width=\\'400\\' height=\\'400\\' fill=\\'%23f1f5f9\\'/ %3E%3Cpath d=\\'M160 160c0-22.1 17.9-40 40-40s40 17.9 40 40-17.9 40-40 40-40-17.9-40-40zm120 120H120l50-65 35 45 25-30 50 50z\\' fill=\\'%2394a3b8\\'/ %3E%3Ctext x=\\'50%25\\' y=\\'82%25\\' dominant-baseline=\\'middle\\' text-anchor=\\'middle\\' font-family=\\'sans-serif\\' font-size=\\'16\\' font-weight=\\'bold\\' fill=\\'%2364748b\\'%3Eلا توجد صورة%3C/text%3E%3C/svg%3E';">
               <div class="flex-1 min-w-0">
                 <p class="font-medium text-main text-sm line-clamp-1">\${item.name}</p>
                 \${item.variant ? \`<p class="text-[10px] text-mute font-semibold mb-0.5">\${item.variant}</p>\` : ''}
@@ -1172,9 +1173,9 @@ store.get('/:slug/products', async (c) => {
             <div class="bg-card rounded-2xl overflow-hidden shadow-sm card-hover border border-std cursor-pointer"
                  onclick="window.location.href='/store/${slug}/products/${p.id}'">
               <div class="relative aspect-square bg-page overflow-hidden">
-                <img src="${p.image || p.primary_image || 'https://via.placeholder.com/300x300?text=No+Image'}" 
+                <img src="${p.image || p.primary_image || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Crect width='400' height='400' fill='%23f1f5f9'/%3E%3Cpath d='M160 160c0-22.1 17.9-40 40-40s40 17.9 40 40-17.9 40-40 40-40-17.9-40-40zm120 120H120l50-65 35 45 25-30 50 50z' fill='%2394a3b8'/%3E%3Ctext x='50%25' y='82%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='16' font-weight='bold' fill='%2364748b'%3Eلا توجد صورة%3C/text%3E%3C/svg%3E"}" 
                      alt="${p.name}" class="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-                     onerror="this.src='https://via.placeholder.com/300x300?text=No+Image'">
+                     onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 400 400\'%3E%3Crect width=\'400\' height=\'400\' fill=\'%23f1f5f9\'/%3E%3Cpath d=\'M160 160c0-22.1 17.9-40 40-40s40 17.9 40 40-17.9 40-40 40-40-17.9-40-40zm120 120H120l50-65 35 45 25-30 50 50z\' fill=\'%2394a3b8\'/%3E%3Ctext x=\'50%25\' y=\'82%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-family=\'sans-serif\' font-size=\'16\' font-weight=\'bold\' fill=\'%2364748b\'%3Eلا توجد صورة%3C/text%3E%3C/svg%3E';">
                 ${hasDiscount ? `
                   <div class="absolute top-2 right-2 ${flashSale ? 'bg-red-600' : 'bg-red-500'} text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md z-10">
                     ${discountLabel}
@@ -1386,14 +1387,14 @@ store.get('/:slug/products/:id', async (c) => {
       <div>
         <div class="aspect-square bg-page rounded-2xl overflow-hidden mb-4">
           <img id="mainImage" src="${mainImage}" alt="${product.name}" 
-               class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/600x600?text=No+Image'">
+               class="w-full h-full object-cover" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 400 400\'%3E%3Crect width=\'400\' height=\'400\' fill=\'%23f1f5f9\'/%3E%3Cpath d=\'M160 160c0-22.1 17.9-40 40-40s40 17.9 40 40-17.9 40-40 40-40-17.9-40-40zm120 120H120l50-65 35 45 25-30 50 50z\' fill=\'%2394a3b8\'/%3E%3Ctext x=\'50%25\' y=\'82%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-family=\'sans-serif\' font-size=\'16\' font-weight=\'bold\' fill=\'%2364748b\'%3Eلا توجد صورة%3C/text%3E%3C/svg%3E';">
         </div>
         ${imageList.length > 1 ? `
         <div class="grid grid-cols-5 gap-2">
           ${imageList.map((img, i) => `
           <div class="aspect-square rounded-xl overflow-hidden border-2 cursor-pointer transition-all ${i === 0 ? 'border-primary-400' : 'border-transparent hover:border-gray-300'}"
                onclick="document.getElementById('mainImage').src='${img.url}'; this.parentElement.querySelectorAll('div').forEach(d=>d.classList.remove('border-primary-400')); this.classList.add('border-primary-400')">
-            <img src="${img.url}" alt="" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/80'">
+            <img src="${img.url}" alt="" class="w-full h-full object-cover" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 400 400\'%3E%3Crect width=\'400\' height=\'400\' fill=\'%23f1f5f9\'/%3E%3Cpath d=\'M160 160c0-22.1 17.9-40 40-40s40 17.9 40 40-17.9 40-40 40-40-17.9-40-40zm120 120H120l50-65 35 45 25-30 50 50z\' fill=\'%2394a3b8\'/%3E%3Ctext x=\'50%25\' y=\'82%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-family=\'sans-serif\' font-size=\'16\' font-weight=\'bold\' fill=\'%2364748b\'%3Eلا توجد صورة%3C/text%3E%3C/svg%3E';">
           </div>
           `).join('')}
         </div>` : ''}
