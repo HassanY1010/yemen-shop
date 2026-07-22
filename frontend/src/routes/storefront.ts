@@ -858,38 +858,30 @@ store.get('/:slug', async (c) => {
   const primary = storeData.primary_color || '#4F46E5';
 
   // Featured products
+  // Featured products
   const featuredProducts = await c.env.DB.prepare(`
-    SELECT p.*, COALESCE(
-      (SELECT url FROM product_images WHERE product_id = p.id AND (is_primary = true OR is_primary = 1) LIMIT 1),
-      (SELECT url FROM product_images WHERE product_id = p.id LIMIT 1)
-    ) as image FROM products p
-    WHERE p.store_id = ? AND p.status = 'active' AND p.featured = 1
-    ORDER BY p.created_at DESC LIMIT 8
+    SELECT p.*, (SELECT url FROM product_images WHERE product_id = p.id LIMIT 1) as image FROM products p
+    WHERE p.store_id = ? AND p.status = 'active'
+    ORDER BY p.id DESC LIMIT 8
   `).bind(storeData.id).all();
 
   // All products (latest)
   const latestProducts = await c.env.DB.prepare(`
-    SELECT p.*, COALESCE(
-      (SELECT url FROM product_images WHERE product_id = p.id AND (is_primary = true OR is_primary = 1) LIMIT 1),
-      (SELECT url FROM product_images WHERE product_id = p.id LIMIT 1)
-    ) as image, c.name as cat_name FROM products p
+    SELECT p.*, (SELECT url FROM product_images WHERE product_id = p.id LIMIT 1) as image, c.name as cat_name FROM products p
     LEFT JOIN categories c ON c.id = p.category_id
     WHERE p.store_id = ? AND p.status = 'active'
-    ORDER BY p.created_at DESC LIMIT 12
+    ORDER BY p.id DESC LIMIT 12
   `).bind(storeData.id).all();
 
   // Categories
   const categories = await c.env.DB.prepare(
-    "SELECT c.*, COUNT(p.id) as count FROM categories c LEFT JOIN products p ON p.category_id = c.id AND p.status = 'active' WHERE c.store_id = ? AND c.is_active = 1 GROUP BY c.id ORDER BY count DESC LIMIT 6"
+    "SELECT c.*, COUNT(p.id) as count FROM categories c LEFT JOIN products p ON p.category_id = c.id AND p.status = 'active' WHERE c.store_id = ? GROUP BY c.id ORDER BY count DESC LIMIT 6"
   ).bind(storeData.id).all();
 
   // Active flash sales
   const activeFlashSales = await c.env.DB.prepare(`
     SELECT * FROM flash_sales
-    WHERE store_id = ? AND is_active = 1
-      AND start_at <= datetime('now')
-      AND end_at >= datetime('now')
-      AND (max_quantity IS NULL OR sold_quantity < max_quantity)
+    WHERE store_id = ?
   `).bind(storeData.id).all();
   const flashSalesMap = new Map((activeFlashSales.results as any[]).map(s => [s.product_id, s]));
 
