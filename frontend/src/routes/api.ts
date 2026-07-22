@@ -158,18 +158,15 @@ const handleUpdatePassword = async (c: any) => {
   const dbUser = await c.env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(user.id).first() as any;
   if (!dbUser) return c.json({ message: 'المستخدم غير موجود' }, 404);
 
-  // Check current password
+  // Check current password using local verifyPassword
+  const { verifyPassword } = await import('../utils/helpers');
   let isValid = (current_password === 'password' || dbUser.password === current_password);
   if (!isValid) {
-    // Check against Laravel backend
     try {
-      const verifyRes = await fetchLaravel('auth/verify-password', null, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: user.id, password: current_password })
-      });
-      if (verifyRes.ok) isValid = true;
-    } catch (e) {}
+      isValid = await verifyPassword(current_password, dbUser.password);
+    } catch (e: any) {
+      console.error('[UPDATE PASSWORD] verifyPassword error:', e?.message);
+    }
   }
 
   if (!isValid) {
@@ -1018,10 +1015,10 @@ api.get('/flash-sales', async (c) => {
   if (!store) return c.json({ error: 'Not found' }, 404);
 
   const sales = await c.env.DB.prepare(`
-    SELECT fs.*, p.name as product_name, p.price as product_price,
+    SELECT fs.*, COALESCE(p.name, 'منتج محذوف') as product_name, p.price as product_price,
            pi.url as product_image
     FROM flash_sales fs
-    JOIN products p ON p.id = fs.product_id
+    LEFT JOIN products p ON p.id = fs.product_id
     LEFT JOIN product_images pi ON pi.product_id = p.id AND pi.is_primary = 1
     WHERE fs.store_id = ?
     ORDER BY fs.created_at DESC
@@ -1031,36 +1028,44 @@ api.get('/flash-sales', async (c) => {
 });
 
 api.post('/flash-sales', async (c) => {
-  const store = await getStore(c) as any;
-  if (!store) return c.json({ error: 'Not found' }, 404);
+  try {
+    const store = await getStore(c) as any;
+    if (!store) return c.json({ error: 'Not found' }, 404);
 
-  const startVal = data.start_at || data.starts_at;
-  const endVal = data.end_at || data.ends_at;
-  const discVal = parseFloat(data.discount_value || data.discount_percentage) || 0;
+    const data = await c.req.json() as any;
+    console.log('[CREATE FLASH SALE] payload:', JSON.stringify(data));
 
-  if (!data.product_id || !data.title || !discVal || !startVal || !endVal) {
-    return c.json({ message: 'بيانات العرض غير مكتملة' }, 400);
+    const startVal = data.start_at || data.starts_at;
+    const endVal = data.end_at || data.ends_at;
+    const discVal = parseFloat(data.discount_value || data.discount_percentage) || 0;
+
+    if (!data.product_id || !data.title || !discVal || !startVal || !endVal) {
+      return c.json({ message: 'بيانات العرض غير مكتملة' }, 400);
+    }
+
+    // Validate product belongs to store
+    const product = await c.env.DB.prepare(
+      "SELECT id FROM products WHERE id = ? AND store_id = ? AND status = 'active'"
+    ).bind(data.product_id, store.id).first();
+    if (!product) return c.json({ message: 'المنتج غير موجود' }, 404);
+
+    const result = await c.env.DB.prepare(`
+      INSERT INTO flash_sales (store_id, product_id, title, discount_type, discount_value, discount_percentage, start_at, starts_at, end_at, ends_at, max_quantity, is_active)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+    `).bind(
+      store.id, data.product_id, data.title,
+      data.discount_type || 'percentage',
+      discVal, discVal,
+      startVal, startVal,
+      endVal, endVal,
+      data.max_quantity ? parseInt(data.max_quantity) : null
+    ).run();
+
+    return c.json({ id: result?.meta?.last_row_id || null, message: 'تم إنشاء العرض' }, 201);
+  } catch (err: any) {
+    console.error('[CREATE FLASH SALE] ERROR:', err?.message, err?.stack);
+    return c.json({ success: false, error: err?.message || 'Internal Server Error' }, 500);
   }
-
-  // Validate product belongs to store
-  const product = await c.env.DB.prepare(
-    "SELECT id FROM products WHERE id = ? AND store_id = ? AND status = 'active'"
-  ).bind(data.product_id, store.id).first();
-  if (!product) return c.json({ message: 'المنتج غير موجود' }, 404);
-
-  const result = await c.env.DB.prepare(`
-    INSERT INTO flash_sales (store_id, product_id, title, discount_type, discount_value, discount_percentage, start_at, starts_at, end_at, ends_at, max_quantity, is_active)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
-  `).bind(
-    store.id, data.product_id, data.title,
-    data.discount_type || 'percentage',
-    discVal, discVal,
-    startVal, startVal,
-    endVal, endVal,
-    data.max_quantity ? parseInt(data.max_quantity) : null
-  ).run();
-
-  return c.json({ id: result.meta.last_row_id, message: 'تم إنشاء العرض' }, 201);
 });
 
 api.put('/flash-sales/:id', async (c) => {

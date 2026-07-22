@@ -302,7 +302,11 @@ auth.post('/api/auth/login', async (c) => {
     if (user.force_password_change) {
       // Create a temporary reset token
       const resetToken = generateToken();
-      await c.env.DB.prepare("INSERT INTO sessions (id, user_id, token, expires_at) VALUES (?, ?, ?, datetime('now', '+1 hour'))").bind(crypto.randomUUID(), user.id, resetToken).run();
+      const resetExpires = new Date();
+      resetExpires.setHours(resetExpires.getHours() + 1);
+      await c.env.DB.prepare(
+        'INSERT INTO sessions (id, user_id, token, expires_at) VALUES (?, ?, ?, ?)'
+      ).bind(crypto.randomUUID(), user.id, resetToken, resetExpires.toISOString()).run();
       return c.json({ requirePasswordChange: true, resetToken });
     }
 
@@ -382,10 +386,12 @@ auth.post('/api/auth/register', async (c) => {
 
     const userId = userResult.meta.last_row_id;
 
-    // Create store (free plan = plan_id 1)
+    // Create store (free plan = plan_id 1, expires in 5 days)
+    const subEndsAt = new Date();
+    subEndsAt.setDate(subEndsAt.getDate() + 5);
     const storeResult = await c.env.DB.prepare(
-      "INSERT INTO stores (user_id, plan_id, name, slug, status, subscription_status, subscription_ends_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now', '+5 days'))"
-    ).bind(userId, 1, store_name, store_slug, 'active', 'active').run();
+      'INSERT INTO stores (user_id, plan_id, name, slug, status, subscription_status, subscription_ends_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).bind(userId, 1, store_name, store_slug, 'active', 'active', subEndsAt.toISOString()).run();
 
     const storeId = storeResult.meta.last_row_id;
 

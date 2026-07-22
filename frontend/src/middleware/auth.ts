@@ -25,12 +25,13 @@ export async function authMiddleware(c: AppContext, next: Next) {
     const db: any = (c.env && c.env.DB) ? c.env.DB : (getPgPool() ? new PgD1Database(getPgPool()) : null);
     if (db) {
       try {
+        const nowIso = new Date().toISOString();
         const session = await db.prepare(
           `SELECT s.user_id, s.store_id, u.name, u.email, u.role, u.avatar, u.is_active
            FROM sessions s
            JOIN users u ON u.id = s.user_id
-           WHERE s.token = ? AND (s.expires_at IS NULL OR s.expires_at > CURRENT_TIMESTAMP)`
-        ).bind(token).first() as any;
+           WHERE s.token = ? AND (s.expires_at IS NULL OR s.expires_at > ?)`
+        ).bind(token, nowIso).first() as any;
 
         if (session) {
           const user: User = {
@@ -46,20 +47,24 @@ export async function authMiddleware(c: AppContext, next: Next) {
 
           let storeId = session.store_id;
           if (!storeId && session.role === 'merchant') {
-            const st = await c.env.DB.prepare('SELECT id FROM stores WHERE user_id = ? LIMIT 1').bind(session.user_id).first() as any;
+            const st = await db.prepare('SELECT id FROM stores WHERE user_id = ? LIMIT 1').bind(session.user_id).first() as any;
             storeId = st?.id || null;
           }
 
           if (storeId) {
-            const store = await c.env.DB.prepare('SELECT * FROM stores WHERE id = ?').bind(storeId).first() as any;
+            const store = await db.prepare('SELECT * FROM stores WHERE id = ?').bind(storeId).first() as any;
             if (store) c.set('store', store);
           }
 
           return await next();
         }
-      } catch (e) {}
+      } catch (e: any) {
+        console.error('[Auth Middleware] session query error:', e?.message || e);
+      }
     }
-  } catch (e) {}
+  } catch (e: any) {
+    console.error('[Auth Middleware] outer error:', e?.message || e);
+  }
 
   const path = new URL(c.req.url).pathname;
   if (isProtectedPath(path)) {

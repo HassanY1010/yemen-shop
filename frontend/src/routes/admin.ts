@@ -19,19 +19,21 @@ admin.get('/', async (c) => {
     c.env.DB.prepare('SELECT COUNT(*) as count FROM orders').first() as Promise<any>,
     c.env.DB.prepare("SELECT COALESCE(SUM(total), 0) as revenue FROM orders WHERE status != 'cancelled'").first() as Promise<any>,
     c.env.DB.prepare('SELECT COUNT(*) as count FROM customers').first() as Promise<any>,
-    c.env.DB.prepare("SELECT COUNT(*) as count FROM orders WHERE DATE(created_at) = DATE('now')").first() as Promise<any>,
-    c.env.DB.prepare("SELECT COALESCE(SUM(total), 0) as revenue FROM orders WHERE DATE(created_at) = DATE('now') AND status != 'cancelled'").first() as Promise<any>,
+    c.env.DB.prepare(`SELECT COUNT(*) as count FROM orders WHERE DATE(created_at::date) = CURRENT_DATE`).first() as Promise<any>,
+    c.env.DB.prepare(`SELECT COALESCE(SUM(total), 0) as revenue FROM orders WHERE DATE(created_at::date) = CURRENT_DATE AND status != 'cancelled'`).first() as Promise<any>,
   ]);
 
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
   const last7Days = await c.env.DB.prepare(`
     SELECT DATE(created_at) as day, COUNT(*) as orders, COALESCE(SUM(total),0) as revenue
-    FROM orders WHERE created_at >= DATE('now', '-6 days')
+    FROM orders WHERE created_at >= ?
     GROUP BY DATE(created_at) ORDER BY day ASC
-  `).all();
+  `).bind(sevenDaysAgo.toISOString()).all();
 
   const recentStores = await c.env.DB.prepare(`
-    SELECT s.*, u.name as owner_name, p.name as plan_name
-    FROM stores s JOIN users u ON s.user_id = u.id JOIN plans p ON s.plan_id = p.id
+    SELECT s.*, u.name as owner_name, COALESCE(p.name, 'بدون باقة') as plan_name
+    FROM stores s LEFT JOIN users u ON s.user_id = u.id LEFT JOIN plans p ON s.plan_id = p.id
     ORDER BY s.created_at DESC LIMIT 6
   `).all();
 
@@ -42,8 +44,8 @@ admin.get('/', async (c) => {
   `).all();
 
   const recentOrders = await c.env.DB.prepare(`
-    SELECT o.*, s.name as store_name
-    FROM orders o JOIN stores s ON o.store_id = s.id
+    SELECT o.*, COALESCE(s.name, 'متجر محذوف') as store_name
+    FROM orders o LEFT JOIN stores s ON o.store_id = s.id
     ORDER BY o.created_at DESC LIMIT 8
   `).all();
 
@@ -907,23 +909,28 @@ admin.get('/subscriptions', async (c) => {
   const { ensurePlansSeeded } = await import('../middleware/tenant');
   await ensurePlansSeeded(c.env.DB);
 
+  const sevenDaysLater = new Date();
+  sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
+  const nowIso = new Date().toISOString();
+  const sevenDaysLaterIso = sevenDaysLater.toISOString();
+
   let where = '';
   if (filter === 'pending') { where = "WHERE s.subscription_status = 'pending_activation'"; }
-  else if (filter === 'expiring') { where = "WHERE s.subscription_ends_at IS NOT NULL AND s.subscription_ends_at <= DATE('now', '+7 days') AND s.subscription_status = 'active'"; }
-  else if (filter === 'expired') { where = "WHERE s.subscription_status = 'expired' OR (s.subscription_ends_at IS NOT NULL AND s.subscription_ends_at < DATE('now'))"; }
+  else if (filter === 'expiring') { where = `WHERE s.subscription_ends_at IS NOT NULL AND s.subscription_ends_at <= '${sevenDaysLaterIso}' AND s.subscription_status = 'active'`; }
+  else if (filter === 'expired') { where = `WHERE s.subscription_status = 'expired' OR (s.subscription_ends_at IS NOT NULL AND s.subscription_ends_at < '${nowIso}')`; }
   else if (filter === 'free') { where = 'WHERE p.price = 0'; }
 
   const stores = await c.env.DB.prepare(`
-    SELECT s.*, u.name as owner_name, p.name as plan_name, p.price as plan_price, p.slug as plan_slug
-    FROM stores s JOIN users u ON s.user_id = u.id JOIN plans p ON s.plan_id = p.id
+    SELECT s.*, u.name as owner_name, COALESCE(p.name,'بدون باقة') as plan_name, p.price as plan_price, p.slug as plan_slug
+    FROM stores s LEFT JOIN users u ON s.user_id = u.id LEFT JOIN plans p ON s.plan_id = p.id
     ${where} ORDER BY s.subscription_ends_at ASC
   `).all();
 
   const [pendingCount, expiringSoon, paidCount, freeCount] = await Promise.all([
     c.env.DB.prepare("SELECT COUNT(*) as count FROM stores WHERE subscription_status = 'pending_activation'").first() as Promise<any>,
-    c.env.DB.prepare("SELECT COUNT(*) as count FROM stores WHERE subscription_ends_at IS NOT NULL AND subscription_ends_at <= DATE('now', '+7 days') AND subscription_status = 'active'").first() as Promise<any>,
-    c.env.DB.prepare("SELECT COUNT(*) as count FROM stores s JOIN plans p ON s.plan_id = p.id WHERE p.price > 0").first() as Promise<any>,
-    c.env.DB.prepare("SELECT COUNT(*) as count FROM stores s JOIN plans p ON s.plan_id = p.id WHERE p.price = 0").first() as Promise<any>,
+    c.env.DB.prepare(`SELECT COUNT(*) as count FROM stores WHERE subscription_ends_at IS NOT NULL AND subscription_ends_at <= '${sevenDaysLaterIso}' AND subscription_status = 'active'`).first() as Promise<any>,
+    c.env.DB.prepare("SELECT COUNT(*) as count FROM stores s LEFT JOIN plans p ON s.plan_id = p.id WHERE p.price > 0").first() as Promise<any>,
+    c.env.DB.prepare("SELECT COUNT(*) as count FROM stores s LEFT JOIN plans p ON s.plan_id = p.id WHERE p.price = 0").first() as Promise<any>,
   ]);
 
   const planBadge: Record<string, string> = { free: 'bg-gray-100 text-gray-600', basic: 'bg-blue-100 text-blue-700', pro: 'bg-purple-100 text-purple-700', business: 'bg-amber-100 text-amber-700' };
@@ -1017,39 +1024,53 @@ admin.get('/subscriptions', async (c) => {
 
 // ─── Admin API Routes ─────────────────────────────────────────
 admin.put('/stores/:id/status', async (c) => {
-  const { status } = await c.req.json() as any;
-  const storeId = parseInt(c.req.param('id'));
-  await c.env.DB.prepare("UPDATE stores SET status = ?, updated_at = datetime('now') WHERE id = ?").bind(status, storeId).run();
-  return c.json({ message: 'تم تحديث حالة المتجر' });
+  try {
+    const { status } = await c.req.json() as any;
+    const storeId = parseInt(c.req.param('id'));
+    await c.env.DB.prepare('UPDATE stores SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind(status, storeId).run();
+    return c.json({ message: 'تم تحديث حالة المتجر' });
+  } catch (err: any) {
+    console.error('[ADMIN] PUT stores/:id/status error:', err?.message);
+    return c.json({ success: false, error: err?.message }, 500);
+  }
 });
 
 admin.put('/users/:id/status', async (c) => {
-  const { is_active } = await c.req.json() as any;
-  const userId = parseInt(c.req.param('id'));
-  await c.env.DB.prepare("UPDATE users SET is_active = ?, updated_at = datetime('now') WHERE id = ?").bind(is_active, userId).run();
-  return c.json({ message: 'تم تحديث حالة المستخدم' });
+  try {
+    const { is_active } = await c.req.json() as any;
+    const userId = parseInt(c.req.param('id'));
+    await c.env.DB.prepare('UPDATE users SET is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind(is_active, userId).run();
+    return c.json({ message: 'تم تحديث حالة المستخدم' });
+  } catch (err: any) {
+    console.error('[ADMIN] PUT users/:id/status error:', err?.message);
+    return c.json({ success: false, error: err?.message }, 500);
+  }
 });
 
 admin.post('/users/:id/reset-password', async (c) => {
-  const userId = parseInt(c.req.param('id'));
-  const tempPassword = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('1234567891')).then(b => Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join(''));
-  
-  await c.env.DB.prepare("UPDATE users SET password = ?, force_password_change = 1, updated_at = datetime('now') WHERE id = ?")
-    .bind(tempPassword, userId)
-    .run();
-  
-  return c.json({ message: 'تم إعادة تعيين كلمة المرور بنجاح' });
+  try {
+    const userId = parseInt(c.req.param('id'));
+    const tempPassword = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('1234567891')).then(b => Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join(''));
+    await c.env.DB.prepare('UPDATE users SET password = ?, force_password_change = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .bind(tempPassword, userId).run();
+    return c.json({ message: 'تم إعادة تعيين كلمة المرور بنجاح' });
+  } catch (err: any) {
+    console.error('[ADMIN] reset-password error:', err?.message);
+    return c.json({ success: false, error: err?.message }, 500);
+  }
 });
 
 admin.post('/customers/:id/reset-password', async (c) => {
-  const customerId = parseInt(c.req.param('id'));
-  const tempPassword = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('1234567891')).then(b => Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join(''));
-  
-  await c.env.DB.prepare("UPDATE customers SET password = ?, force_password_change = 1, updated_at = datetime('now') WHERE id = ?")
-    .bind(tempPassword, customerId)
-    .run();
-  
-  return c.json({ message: 'تم إعادة تعيين كلمة المرور بنجاح' });
+  try {
+    const customerId = parseInt(c.req.param('id'));
+    const tempPassword = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('1234567891')).then(b => Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join(''));
+    await c.env.DB.prepare('UPDATE customers SET password = ?, force_password_change = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .bind(tempPassword, customerId).run();
+    return c.json({ message: 'تم إعادة تعيين كلمة المرور بنجاح' });
+  } catch (err: any) {
+    console.error('[ADMIN] reset-customer-password error:', err?.message);
+    return c.json({ success: false, error: err?.message }, 500);
+  }
 });
 
 admin.post('/stores/:id/activate-subscription', async (c) => {
@@ -1136,20 +1157,30 @@ admin.put('/stores/:id/plan', async (c) => {
 });
 
 admin.put('/plans/:id', async (c) => {
-  const planId = parseInt(c.req.param('id'));
-  const { price, max_products, max_orders, max_staff } = await c.req.json() as any;
-  await c.env.DB.prepare("UPDATE plans SET price = ?, max_products = ?, max_orders = ?, max_staff = ?, updated_at = datetime('now') WHERE id = ?").bind(price, max_products, max_orders, max_staff, planId).run();
-  return c.json({ message: 'تم تحديث الباقة بنجاح' });
+  try {
+    const planId = parseInt(c.req.param('id'));
+    const { price, max_products, max_orders, max_staff } = await c.req.json() as any;
+    await c.env.DB.prepare('UPDATE plans SET price = ?, max_products = ?, max_orders = ?, max_staff = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind(price, max_products, max_orders, max_staff, planId).run();
+    return c.json({ message: 'تم تحديث الباقة بنجاح' });
+  } catch (err: any) {
+    console.error('[ADMIN] PUT plans/:id error:', err?.message);
+    return c.json({ success: false, error: err?.message }, 500);
+  }
 });
 
 admin.post('/stores/:id/extend', async (c) => {
-  const storeId = parseInt(c.req.param('id'));
-  const store = await c.env.DB.prepare('SELECT subscription_ends_at FROM stores WHERE id = ?').bind(storeId).first() as any;
-  const base = store?.subscription_ends_at ? new Date(store.subscription_ends_at) : new Date();
-  if (base < new Date()) base.setTime(Date.now());
-  base.setMonth(base.getMonth() + 1);
-  await c.env.DB.prepare("UPDATE stores SET subscription_ends_at = ?, subscription_status = 'active', updated_at = datetime('now') WHERE id = ?").bind(base.toISOString(), storeId).run();
-  return c.json({ message: 'تم تمديد الاشتراك' });
+  try {
+    const storeId = parseInt(c.req.param('id'));
+    const store = await c.env.DB.prepare('SELECT subscription_ends_at FROM stores WHERE id = ?').bind(storeId).first() as any;
+    const base = store?.subscription_ends_at ? new Date(store.subscription_ends_at) : new Date();
+    if (base < new Date()) base.setTime(Date.now());
+    base.setMonth(base.getMonth() + 1);
+    await c.env.DB.prepare("UPDATE stores SET subscription_ends_at = ?, subscription_status = 'active', updated_at = CURRENT_TIMESTAMP WHERE id = ?").bind(base.toISOString(), storeId).run();
+    return c.json({ message: 'تم تمديد الاشتراك' });
+  } catch (err: any) {
+    console.error('[ADMIN] extend subscription error:', err?.message);
+    return c.json({ success: false, error: err?.message }, 500);
+  }
 });
 
 // ─── Admin Settings Page ──────────────────────────────────────
