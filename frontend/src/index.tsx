@@ -758,9 +758,9 @@ app.post('/api/store/:slug/orders', async (c) => {
     // Validate coupon once more server-side
     const coupon = await c.env.DB.prepare(
       `SELECT * FROM coupons WHERE id = ? AND store_id = ? AND is_active = 1
-       AND (expires_at IS NULL OR expires_at > datetime('now'))
+       AND (expires_at IS NULL OR expires_at > ?)
        AND (max_uses IS NULL OR used_count < max_uses)`
-    ).bind(couponId, storeData.id).first() as any;
+    ).bind(couponId, storeData.id, new Date().toISOString()).first() as any;
 
     if (coupon) {
       const serverDiscount = coupon.type === 'percentage'
@@ -769,7 +769,7 @@ app.post('/api/store/:slug/orders', async (c) => {
       discountAmount = Math.round(serverDiscount * 100) / 100;
       // Increment usage counter
       await c.env.DB.prepare(
-        "UPDATE coupons SET used_count = used_count + 1, updated_at = datetime('now') WHERE id = ?"
+        'UPDATE coupons SET used_count = used_count + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
       ).bind(couponId).run();
     }
   }
@@ -800,25 +800,33 @@ app.post('/api/store/:slug/orders', async (c) => {
   const paymentMethod = data.payment_method || 'cod'; // cod, card, receipt
   const receiptImage = data.receipt_image || null;
 
-  const orderResult = await c.env.DB.prepare(`
-    INSERT INTO orders (store_id, customer_id, order_number, status, payment_status, payment_method,
-      subtotal, discount_amount, shipping, total, currency,
-      customer_name, customer_email, customer_phone, shipping_address, shipping_city, notes, receipt_image)
-    VALUES (?, ?, ?, 'pending', 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(
-    storeData.id, customerId, orderNumber,
-    paymentMethod,
-    subtotal, discountAmount, shippingCost, finalTotal, storeData.currency,
-    data.customer_name, data.customer_email || null, data.customer_phone || null,
-    data.shipping_address || null, data.shipping_city || null, data.notes || null,
-    receiptImage
-  ).run()
+  let orderId: any;
+  try {
+    const orderResult = await c.env.DB.prepare(`
+      INSERT INTO orders (store_id, customer_id, order_number, status, payment_status, payment_method,
+        subtotal, discount_amount, shipping, total, currency,
+        customer_name, customer_email, customer_phone, shipping_address, shipping_city, notes, receipt_image)
+      VALUES (?, ?, ?, 'pending', 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      storeData.id, customerId, orderNumber,
+      paymentMethod,
+      subtotal, discountAmount, shippingCost, finalTotal, storeData.currency,
+      data.customer_name, data.customer_email || null, data.customer_phone || null,
+      data.shipping_address || null, data.shipping_city || null, data.notes || null,
+      receiptImage
+    ).run();
 
-  const orderId = orderResult.meta.last_row_id
-  for (const item of orderItems) {
-    await c.env.DB.prepare(
-      'INSERT INTO order_items (order_id, store_id, product_id, product_name, price, quantity, total) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    ).bind(orderId, storeData.id, item.product_id, item.product_name, item.price, item.quantity, item.total).run()
+    orderId = orderResult.meta.last_row_id;
+    console.log('[ORDER] created order id:', orderId, 'for store:', storeData.id);
+
+    for (const item of orderItems) {
+      await c.env.DB.prepare(
+        'INSERT INTO order_items (order_id, store_id, product_id, product_name, price, quantity, total) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      ).bind(orderId, storeData.id, item.product_id, item.product_name, item.price, item.quantity, item.total).run();
+    }
+  } catch (orderErr: any) {
+    console.error('[ORDER] FATAL INSERT ERROR:', orderErr?.message, orderErr?.stack);
+    return c.json({ message: 'حدث خطأ أثناء إنشاء الطلب، يرجى المحاولة مجدداً' }, 500);
   }
 
   // Update store total_sales

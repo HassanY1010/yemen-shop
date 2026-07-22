@@ -2679,7 +2679,10 @@ store.post('/:slug/login', async (c) => {
 
   if (customer.force_password_change) {
     const resetToken = generateToken();
-    await c.env.DB.prepare("INSERT INTO sessions (id, user_id, token, expires_at) VALUES (?, ?, ?, datetime('now', '+1 hour'))").bind(crypto.randomUUID(), customer.id, resetToken).run();
+    const resetExpires = new Date(Date.now() + 3600 * 1000).toISOString();
+    await c.env.DB.prepare(
+      'INSERT INTO sessions (id, user_id, store_id, token, expires_at) VALUES (?, ?, ?, ?, ?)'
+    ).bind(crypto.randomUUID(), customer.id, storeData.id, resetToken, resetExpires).run();
     return c.json({ requirePasswordChange: true, resetToken });
   }
 
@@ -3236,8 +3239,8 @@ store.post('/:slug/account/profile', async (c) => {
 
   // Update profile
   await c.env.DB.prepare(
-    `UPDATE customers 
-     SET name = ?, phone = ?, email = ?, city = ?, address = ?, updated_at = datetime('now')
+    `UPDATE customers
+     SET name = ?, phone = ?, email = ?, city = ?, address = ?, updated_at = CURRENT_TIMESTAMP
      WHERE id = ? AND store_id = ?`
   ).bind(name, phone, email, city || null, address || null, customer.id, storeData.id).run();
 
@@ -3271,7 +3274,7 @@ store.put('/:slug/account/password', async (c) => {
   const hashedNew = await hashPassword(newPassword);
 
   await c.env.DB.prepare(
-    "UPDATE customers SET password = ?, updated_at = datetime('now') WHERE id = ? AND store_id = ?"
+    'UPDATE customers SET password = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND store_id = ?'
   ).bind(hashedNew, customer.id, storeData.id).run();
 
   return c.json({ success: true, message: 'تم تغيير كلمة المرور بنجاح' });
