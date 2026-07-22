@@ -122,20 +122,46 @@ app.onError((err: any, c) => {
   }, status);
 })
 
+import fs from 'node:fs/promises'
+import path from 'node:path'
+
+const mimeTypes: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.css': 'text/css',
+  '.js': 'text/javascript',
+  '.html': 'text/html',
+  '.json': 'application/json',
+  '.webapp': 'application/x-web-app-manifest+json'
+};
+
 // Serve static files
 app.use('/static/*', async (c, next) => {
-  if (process.env.DATABASE_URL) {
+  const reqPath = c.req.path;
+  if (process.env.DATABASE_URL || typeof process !== 'undefined') {
     try {
-      return await serveStaticNode({ root: './public' })(c, next);
-    } catch (e) {
-      return next();
+      const relPath = reqPath.replace(/^\/static\//, '');
+      const filePath = path.join(process.cwd(), 'public', 'static', relPath);
+      const ext = path.extname(filePath).toLowerCase();
+      const data = await fs.readFile(filePath);
+      const contentType = mimeTypes[ext] || 'application/octet-stream';
+      return c.body(data, 200, {
+        'Content-Type': contentType,
+        'Cache-Control': 'public, max-age=86400'
+      });
+    } catch (err) {
+      return c.text('File Not Found', 404);
     }
-  } else {
-    try {
-      return await serveStaticCloudflare({ root: './public' })(c, next);
-    } catch (e) {
-      return next();
-    }
+  }
+
+  try {
+    return await serveStaticCloudflare({ root: './public' })(c, next);
+  } catch (e) {
+    return c.text('Not Found', 404);
   }
 });
 app.get('/manifest.json', (c) => c.text(manifestContent, 200, { 'Content-Type': 'application/json' }))
