@@ -141,8 +141,17 @@ class LaravelD1Database {
   }
 }
 
+import { getPgPool, PgD1Database } from './utils/db'
+
 app.use('*', async (c, next) => {
-  c.env.DB = new LaravelD1Database() as any;
+  if (!c.env.DB) {
+    const pgPool = getPgPool();
+    if (pgPool) {
+      c.env.DB = new PgD1Database(pgPool) as any;
+    } else {
+      c.env.DB = new LaravelD1Database() as any;
+    }
+  }
   return next();
 });
 
