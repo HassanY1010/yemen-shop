@@ -22,78 +22,83 @@ export async function authMiddleware(c: AppContext, next: Next) {
   }
 
   try {
-    // 1. Check local D1 sessions database first
     if (c.env && c.env.DB) {
-      const session = await c.env.DB.prepare(
-        `SELECT s.user_id, s.store_id, u.name, u.email, u.role, u.avatar, u.is_active
-         FROM sessions s
-         JOIN users u ON u.id = s.user_id
-         WHERE s.token = ?`
-      ).bind(token).first() as any;
+      try {
+        await c.env.DB.prepare(`
+          CREATE TABLE IF NOT EXISTS sessions (
+            token VARCHAR(255) PRIMARY KEY,
+            user_id INT NOT NULL,
+            store_id INT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          )
+        `).run();
 
-      if (session) {
-        const user: User = {
-          id: session.user_id,
-          name: session.name,
-          email: session.email,
-          role: session.role,
-          avatar: session.avatar,
-          is_active: session.is_active,
-        };
+        const session = await c.env.DB.prepare(
+          `SELECT s.user_id, s.store_id, u.name, u.email, u.role, u.avatar, u.is_active
+           FROM sessions s
+           JOIN users u ON u.id = s.user_id
+           WHERE s.token = ?`
+        ).bind(token).first() as any;
 
-        c.set('user', user);
+        if (session) {
+          const user: User = {
+            id: session.user_id,
+            name: session.name,
+            email: session.email,
+            role: session.role,
+            avatar: session.avatar,
+            is_active: session.is_active,
+          };
 
-        let storeId = session.store_id;
-        if (!storeId && session.role === 'merchant') {
-          const st = await c.env.DB.prepare('SELECT id FROM stores WHERE user_id = ? LIMIT 1').bind(session.user_id).first() as any;
-          storeId = st?.id || null;
+          c.set('user', user);
+
+          let storeId = session.store_id;
+          if (!storeId && session.role === 'merchant') {
+            const st = await c.env.DB.prepare('SELECT id FROM stores WHERE user_id = ? LIMIT 1').bind(session.user_id).first() as any;
+            storeId = st?.id || null;
+          }
+
+          if (storeId) {
+            const store = await c.env.DB.prepare('SELECT * FROM stores WHERE id = ?').bind(storeId).first() as any;
+            if (store) c.set('store', store);
+          }
+
+          return await next();
         }
-
-        if (storeId) {
-          const store = await c.env.DB.prepare('SELECT * FROM stores WHERE id = ?').bind(storeId).first() as any;
-          if (store) c.set('store', store);
-        }
-
-        return await next();
-      }
+      } catch (e) {}
     }
 
     // 2. Fallback to Laravel backend auth/me
-    const res = await fetchLaravel('auth/me', token);
-    if (!res.ok) {
-      const path = new URL(c.req.url).pathname;
-      if (isProtectedPath(path)) {
-        if (isApiPath(path)) {
-          return c.json({ error: 'Unauthorized', message: 'انتهت الجلسة' }, 401);
+    try {
+      const res = await fetchLaravel('auth/me', token);
+      if (res && res.ok) {
+        const data = await res.json() as any;
+        if (data.user) {
+          const user: User = {
+            id: data.user.id,
+            name: data.user.name,
+            email: data.user.email,
+            role: data.user.role,
+            avatar: data.user.avatar,
+            is_active: data.user.is_active,
+            created_at: data.user.created_at,
+          };
+
+          c.set('user', user);
+          if (data.store) c.set('store', data.store);
+          return await next();
         }
-        return c.redirect('/auth/login');
       }
-      return next();
+    } catch (e) {}
+  } catch (e) {}
+
+  const path = new URL(c.req.url).pathname;
+  if (isProtectedPath(path)) {
+    if (isApiPath(path)) {
+      return c.json({ error: 'Unauthorized', message: 'انتهت الجلسة' }, 401);
     }
-
-    const data = await res.json() as any;
-    if (data.user) {
-      const user: User = {
-        id: data.user.id,
-        name: data.user.name,
-        email: data.user.email,
-        role: data.user.role,
-        avatar: data.user.avatar,
-        is_active: data.user.is_active,
-        created_at: data.user.created_at,
-      };
-
-      c.set('user', user);
-
-      if (data.store) {
-        c.set('store', data.store);
-      }
-    }
-
-  } catch (error) {
-    console.error('Auth middleware error:', error);
+    return c.redirect('/auth/login');
   }
-
   return next();
 }
 
