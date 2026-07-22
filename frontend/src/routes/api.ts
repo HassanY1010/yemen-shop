@@ -188,7 +188,7 @@ api.put('/password', handleUpdatePassword);
 api.put('/dashboard/password', handleUpdatePassword);
 
 // ─── Products API ─────────────────────────────────────────────
-api.post('/products', async (c) => {
+const handleCreateProduct = async (c: any) => {
   const store = await getStore(c) as any;
   if (!store) return c.json({ error: 'Store not found' }, 404);
 
@@ -199,7 +199,7 @@ api.post('/products', async (c) => {
 
   const data = await c.req.json() as any;
   
-  if (!data.name || !data.price) {
+  if (!data.name || data.price === undefined || data.price === null) {
     return c.json({ message: 'اسم المنتج والسعر مطلوبان' }, 400);
   }
 
@@ -239,9 +239,9 @@ api.post('/products', async (c) => {
   }
 
   return c.json({ id: productId, message: 'تم إضافة المنتج' }, 201);
-});
+};
 
-api.put('/products/:id', async (c) => {
+const handleUpdateProduct = async (c: any) => {
   const store = await getStore(c) as any;
   if (!store) return c.json({ error: 'Not found' }, 404);
 
@@ -258,7 +258,7 @@ api.put('/products/:id', async (c) => {
     UPDATE products SET 
       name = ?, category_id = ?, description = ?, short_description = ?,
       sku = ?, price = ?, sale_price = ?, currency = ?, stock = ?, status = ?, featured = ?,
-      updated_at = datetime('now')
+      updated_at = CURRENT_TIMESTAMP
     WHERE id = ? AND store_id = ?
   `).bind(
     data.name,
@@ -291,9 +291,9 @@ api.put('/products/:id', async (c) => {
   }
 
   return c.json({ message: 'تم تحديث المنتج' });
-});
+};
 
-api.delete('/products/:id', async (c) => {
+const handleDeleteProduct = async (c: any) => {
   const store = await getStore(c) as any;
   if (!store) return c.json({ error: 'Not found' }, 404);
 
@@ -303,7 +303,14 @@ api.delete('/products/:id', async (c) => {
   ).bind(productId, store.id).run();
 
   return c.json({ message: 'تم حذف المنتج' });
-});
+};
+
+api.post('/products', handleCreateProduct);
+api.post('/dashboard/products', handleCreateProduct);
+api.put('/products/:id', handleUpdateProduct);
+api.put('/dashboard/products/:id', handleUpdateProduct);
+api.delete('/products/:id', handleDeleteProduct);
+api.delete('/dashboard/products/:id', handleDeleteProduct);
 
 // ─── Categories API ───────────────────────────────────────────
 api.get('/categories', async (c) => {

@@ -122,15 +122,19 @@ async function syncPgTables(pool: any) {
       ALTER TABLE products ADD COLUMN IF NOT EXISTS is_featured INT DEFAULT 0;
       ALTER TABLE products ADD COLUMN IF NOT EXISTS featured INT DEFAULT 0;
       ALTER TABLE products ADD COLUMN IF NOT EXISTS total_sold INT DEFAULT 0;
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS short_description TEXT;
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT 'YER';
 
       CREATE TABLE IF NOT EXISTS product_images (
         id SERIAL PRIMARY KEY,
         product_id INT NOT NULL,
+        store_id INT,
         url VARCHAR(255) NOT NULL,
         is_primary INT DEFAULT 0,
         sort_order INT DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+      ALTER TABLE product_images ADD COLUMN IF NOT EXISTS store_id INT;
       ALTER TABLE product_images ADD COLUMN IF NOT EXISTS is_primary INT DEFAULT 0;
 
       CREATE TABLE IF NOT EXISTS coupons (
