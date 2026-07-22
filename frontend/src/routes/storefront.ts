@@ -31,8 +31,8 @@ async function getLoggedInCustomer(c: any, storeId: number): Promise<any | null>
        c.address as cust_address, c.city as cust_city, c.country as cust_country
        FROM sessions s
        JOIN customers c ON s.user_id = c.id
-       WHERE s.token = ? AND s.store_id = ? AND s.expires_at > datetime('now')`
-    ).bind(token, storeId).first() as any;
+       WHERE s.token = ? AND s.store_id = ? AND (s.expires_at IS NULL OR s.expires_at > ?)`
+    ).bind(token, storeId, new Date().toISOString()).first() as any;
 
     if (!session) return null;
     return {
@@ -1051,7 +1051,7 @@ store.get('/:slug/products', async (c) => {
   const offset = (page - 1) * perPage;
 
   let query = `SELECT p.*, COALESCE(
-      (SELECT url FROM product_images WHERE product_id = p.id AND (is_primary = true OR is_primary = 1) LIMIT 1),
+      (SELECT url FROM product_images WHERE product_id = p.id AND is_primary = 1 LIMIT 1),
       (SELECT url FROM product_images WHERE product_id = p.id LIMIT 1)
     ) as image, c.name as cat_name FROM products p
     LEFT JOIN categories c ON c.id = p.category_id
@@ -1085,8 +1085,8 @@ store.get('/:slug/products', async (c) => {
   const activeFlashSales = await c.env.DB.prepare(`
     SELECT * FROM flash_sales
     WHERE store_id = ? AND is_active = 1
-      AND start_at <= datetime('now')
-      AND end_at >= datetime('now')
+      AND (start_at <= CURRENT_TIMESTAMP OR starts_at <= CURRENT_TIMESTAMP)
+      AND (end_at >= CURRENT_TIMESTAMP OR ends_at >= CURRENT_TIMESTAMP)
       AND (max_quantity IS NULL OR sold_quantity < max_quantity)
   `).bind(storeData.id).all();
   const flashSalesMap = new Map((activeFlashSales.results as any[]).map(s => [s.product_id, s]));
