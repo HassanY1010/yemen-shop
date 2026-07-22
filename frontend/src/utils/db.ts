@@ -7,6 +7,67 @@ const SUPABASE_FALLBACK_URL = 'postgresql://postgres.abybrwyyhuacyrexoibi:Hhaall
 async function syncPgTables(pool: any) {
   try {
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        role VARCHAR(50) DEFAULT 'merchant',
+        avatar TEXT,
+        is_active INT DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active INT DEFAULT 1;
+
+      CREATE TABLE IF NOT EXISTS stores (
+        id SERIAL PRIMARY KEY,
+        user_id INT NOT NULL,
+        plan_id INT DEFAULT 1,
+        name VARCHAR(255) NOT NULL,
+        slug VARCHAR(255) UNIQUE NOT NULL,
+        domain VARCHAR(255),
+        custom_domain VARCHAR(255),
+        logo VARCHAR(255),
+        banner VARCHAR(255),
+        description TEXT,
+        currency VARCHAR(10) DEFAULT 'YER',
+        status VARCHAR(50) DEFAULT 'active',
+        subscription_status VARCHAR(50) DEFAULT 'active',
+        subscription_starts_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        subscription_ends_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      ALTER TABLE stores ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(50) DEFAULT 'active';
+      ALTER TABLE stores ADD COLUMN IF NOT EXISTS subscription_starts_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+      ALTER TABLE stores ADD COLUMN IF NOT EXISTS subscription_ends_at TIMESTAMP;
+
+      CREATE TABLE IF NOT EXISTS plans (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        slug VARCHAR(255) NOT NULL,
+        price DECIMAL(10,2) DEFAULT 0,
+        max_products INT DEFAULT 50,
+        max_orders INT DEFAULT 100,
+        max_staff INT DEFAULT 2,
+        duration_days INT DEFAULT 30,
+        features TEXT,
+        is_active INT DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      ALTER TABLE plans ADD COLUMN IF NOT EXISTS duration_days INT DEFAULT 30;
+
+      CREATE TABLE IF NOT EXISTS platform_settings (
+        id SERIAL PRIMARY KEY,
+        key VARCHAR(255) UNIQUE NOT NULL,
+        value TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      INSERT INTO platform_settings (key, value) VALUES ('support_whatsapp', '+967776461892') ON CONFLICT (key) DO NOTHING;
+
       CREATE TABLE IF NOT EXISTS sessions (
         id VARCHAR(255) PRIMARY KEY,
         user_id INT NOT NULL,
@@ -19,6 +80,17 @@ async function syncPgTables(pool: any) {
       ALTER TABLE sessions ADD COLUMN IF NOT EXISTS store_id INT;
       ALTER TABLE sessions ADD COLUMN IF NOT EXISTS token VARCHAR(255);
       ALTER TABLE sessions ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP;
+
+      CREATE TABLE IF NOT EXISTS system_notifications (
+        id SERIAL PRIMARY KEY,
+        store_id INT,
+        user_id INT,
+        title VARCHAR(255) NOT NULL,
+        message TEXT NOT NULL,
+        type VARCHAR(50) DEFAULT 'info',
+        is_read INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
     `);
   } catch (e) {
     console.error('Pg Table Sync Error:', e);
