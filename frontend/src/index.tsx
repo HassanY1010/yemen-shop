@@ -114,11 +114,20 @@ app.use('*', authMiddleware)
 app.use('*', tenantMiddleware)
 
 app.onError((err: any, c) => {
-  console.error('GLOBAL ERROR:', err);
+  const method = c.req.method;
+  const path = c.req.path;
+  console.error('==========================================');
+  console.error(`[GLOBAL ERROR] ${method} ${path}`);
+  console.error('Message :', err?.message || err);
+  console.error('Detail  :', err?.detail || '-');
+  console.error('Code    :', err?.code || '-');
+  console.error('Stack   :', err?.stack || '-');
+  console.error('==========================================');
   const status = (err && typeof err.status === 'number' && err.status >= 200 && err.status <= 599) ? err.status : 500;
   return c.json({
     success: false,
-    error: err?.message || 'Internal Server Error'
+    error: err?.message || 'Internal Server Error',
+    detail: err?.detail || '',
   }, status);
 })
 

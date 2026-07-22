@@ -178,7 +178,7 @@ const handleUpdatePassword = async (c: any) => {
 
   // Update password in DB
   await c.env.DB.prepare(
-    "UPDATE users SET password = ?, updated_at = datetime('now') WHERE id = ?"
+    'UPDATE users SET password = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
   ).bind(new_password, user.id).run();
 
   return c.json({ success: true, message: 'تم تغيير كلمة المرور بنجاح' });
@@ -189,125 +189,148 @@ api.put('/dashboard/password', handleUpdatePassword);
 
 // ─── Products API ─────────────────────────────────────────────
 const handleCreateProduct = async (c: any) => {
-  const store = await getStore(c) as any;
-  if (!store) return c.json({ error: 'Store not found' }, 404);
+  try {
+    const store = await getStore(c) as any;
+    if (!store) return c.json({ error: 'Store not found' }, 404);
 
-  const limitCheck = await checkSubscriptionLimit(c, store.id, 'products');
-  if (!limitCheck.allowed) {
-    return c.json({ message: limitCheck.message }, 400);
-  }
+    let limitCheck: any = { allowed: true };
+    try {
+      limitCheck = await checkSubscriptionLimit(c, store.id, 'products');
+    } catch (limitErr: any) {
+      console.error('[CREATE PRODUCT] checkSubscriptionLimit error:', limitErr?.message || limitErr);
+    }
+    if (!limitCheck.allowed) {
+      return c.json({ message: limitCheck.message }, 400);
+    }
 
-  const data = await c.req.json() as any;
-  
-  if (!data.name || data.price === undefined || data.price === null) {
-    return c.json({ message: 'اسم المنتج والسعر مطلوبان' }, 400);
-  }
+    const data = await c.req.json() as any;
+    console.log('[CREATE PRODUCT] payload:', JSON.stringify(data));
 
-  const slug = generateSlug(data.name) + '-' + Date.now().toString(36);
-  
-  const featVal = data.featured || data.is_featured || 0;
+    if (!data.name || data.price === undefined || data.price === null) {
+      return c.json({ message: 'اسم المنتج والسعر مطلوبان' }, 400);
+    }
 
-  const result = await c.env.DB.prepare(`
-    INSERT INTO products (store_id, category_id, name, slug, description, short_description, 
-      sku, price, sale_price, currency, stock, status, featured, is_featured)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(
-    store.id,
-    data.category_id || null,
-    data.name,
-    slug,
-    data.description || null,
-    data.short_description || null,
-    data.sku || null,
-    parseFloat(data.price) || 0,
-    data.sale_price ? parseFloat(data.sale_price) : null,
-    data.currency || 'YER',
-    parseInt(data.stock) || 0,
-    data.status || 'active',
-    featVal,
-    featVal
-  ).run();
+    const slug = generateSlug(data.name) + '-' + Date.now().toString(36);
+    const featVal = data.featured !== undefined ? (data.featured ? 1 : 0) : (data.is_featured ? 1 : 0);
 
-  const productId = result.meta.last_row_id;
+    const result = await c.env.DB.prepare(`
+      INSERT INTO products (store_id, category_id, name, slug, description, short_description,
+        sku, price, sale_price, currency, stock, status, featured, is_featured)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      store.id,
+      data.category_id || null,
+      data.name,
+      slug,
+      data.description || null,
+      data.short_description || null,
+      data.sku || null,
+      parseFloat(data.price) || 0,
+      data.sale_price ? parseFloat(data.sale_price) : null,
+      data.currency || 'YER',
+      parseInt(data.stock) || 0,
+      data.status || 'active',
+      featVal,
+      featVal
+    ).run();
 
-  // Add images
-  if (data.images && data.images.length > 0) {
-    for (let i = 0; i < data.images.length; i++) {
-      if (data.images[i]) {
-        await c.env.DB.prepare(
-          'INSERT INTO product_images (product_id, store_id, url, is_primary, sort_order) VALUES (?, ?, ?, ?, ?)'
-        ).bind(productId, store.id, data.images[i], i === 0 ? 1 : 0, i).run();
+    const productId = result.meta.last_row_id;
+    console.log('[CREATE PRODUCT] inserted product id:', productId);
+
+    // Add images
+    if (data.images && data.images.length > 0) {
+      for (let i = 0; i < data.images.length; i++) {
+        if (data.images[i]) {
+          await c.env.DB.prepare(
+            'INSERT INTO product_images (product_id, store_id, url, is_primary, sort_order) VALUES (?, ?, ?, ?, ?)'
+          ).bind(productId, store.id, data.images[i], i === 0 ? 1 : 0, i).run();
+        }
       }
     }
-  }
 
-  return c.json({ id: productId, message: 'تم إضافة المنتج' }, 201);
+    return c.json({ id: productId, message: 'تم إضافة المنتج' }, 201);
+  } catch (err: any) {
+    console.error('[CREATE PRODUCT] FATAL ERROR:', err?.message || err, err?.stack || '');
+    return c.json({ success: false, error: err?.message || 'Internal Server Error', detail: err?.detail || '' }, 500);
+  }
 };
 
 const handleUpdateProduct = async (c: any) => {
-  const store = await getStore(c) as any;
-  if (!store) return c.json({ error: 'Not found' }, 404);
+  try {
+    const store = await getStore(c) as any;
+    if (!store) return c.json({ error: 'Not found' }, 404);
 
-  const productId = parseInt(c.req.param('id'));
-  const product = await c.env.DB.prepare(
-    'SELECT id FROM products WHERE id = ? AND store_id = ?'
-  ).bind(productId, store.id).first();
+    const productId = parseInt(c.req.param('id'));
+    const product = await c.env.DB.prepare(
+      'SELECT id FROM products WHERE id = ? AND store_id = ?'
+    ).bind(productId, store.id).first();
 
-  if (!product) return c.json({ message: 'المنتج غير موجود' }, 404);
+    if (!product) return c.json({ message: 'المنتج غير موجود' }, 404);
 
-  const data = await c.req.json() as any;
-  const featVal = data.featured !== undefined ? data.featured : (data.is_featured !== undefined ? data.is_featured : 0);
+    const data = await c.req.json() as any;
+    console.log('[UPDATE PRODUCT] id:', productId, 'payload:', JSON.stringify(data));
+    const featVal = data.featured !== undefined ? (data.featured ? 1 : 0) : (data.is_featured ? 1 : 0);
 
-  await c.env.DB.prepare(`
-    UPDATE products SET 
-      name = ?, category_id = ?, description = ?, short_description = ?,
-      sku = ?, price = ?, sale_price = ?, currency = ?, stock = ?, status = ?, featured = ?, is_featured = ?,
-      updated_at = CURRENT_TIMESTAMP
-    WHERE id = ? AND store_id = ?
-  `).bind(
-    data.name,
-    data.category_id || null,
-    data.description || null,
-    data.short_description || null,
-    data.sku || null,
-    parseFloat(data.price) || 0,
-    data.sale_price ? parseFloat(data.sale_price) : null,
-    data.currency || 'YER',
-    parseInt(data.stock) || 0,
-    data.status || 'active',
-    featVal,
-    featVal,
-    productId,
-    store.id
-  ).run();
+    await c.env.DB.prepare(`
+      UPDATE products SET
+        name = ?, category_id = ?, description = ?, short_description = ?,
+        sku = ?, price = ?, sale_price = ?, currency = ?, stock = ?, status = ?, featured = ?, is_featured = ?,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ? AND store_id = ?
+    `).bind(
+      data.name,
+      data.category_id || null,
+      data.description || null,
+      data.short_description || null,
+      data.sku || null,
+      parseFloat(data.price) || 0,
+      data.sale_price ? parseFloat(data.sale_price) : null,
+      data.currency || 'YER',
+      parseInt(data.stock) || 0,
+      data.status || 'active',
+      featVal,
+      featVal,
+      productId,
+      store.id
+    ).run();
 
-  // Update images
-  if (data.images !== undefined) {
-    await c.env.DB.prepare('DELETE FROM product_images WHERE product_id = ? AND store_id = ?')
-      .bind(productId, store.id).run();
-    
-    for (let i = 0; i < data.images.length; i++) {
-      if (data.images[i]) {
-        await c.env.DB.prepare(
-          'INSERT INTO product_images (product_id, store_id, url, is_primary, sort_order) VALUES (?, ?, ?, ?, ?)'
-        ).bind(productId, store.id, data.images[i], i === 0 ? 1 : 0, i).run();
+    // Update images
+    if (data.images !== undefined) {
+      await c.env.DB.prepare('DELETE FROM product_images WHERE product_id = ? AND store_id = ?')
+        .bind(productId, store.id).run();
+
+      for (let i = 0; i < data.images.length; i++) {
+        if (data.images[i]) {
+          await c.env.DB.prepare(
+            'INSERT INTO product_images (product_id, store_id, url, is_primary, sort_order) VALUES (?, ?, ?, ?, ?)'
+          ).bind(productId, store.id, data.images[i], i === 0 ? 1 : 0, i).run();
+        }
       }
     }
-  }
 
-  return c.json({ message: 'تم تحديث المنتج' });
+    return c.json({ message: 'تم تحديث المنتج' });
+  } catch (err: any) {
+    console.error('[UPDATE PRODUCT] FATAL ERROR:', err?.message || err, err?.stack || '');
+    return c.json({ success: false, error: err?.message || 'Internal Server Error', detail: err?.detail || '' }, 500);
+  }
 };
 
 const handleDeleteProduct = async (c: any) => {
-  const store = await getStore(c) as any;
-  if (!store) return c.json({ error: 'Not found' }, 404);
+  try {
+    const store = await getStore(c) as any;
+    if (!store) return c.json({ error: 'Not found' }, 404);
 
-  const productId = parseInt(c.req.param('id'));
-  await c.env.DB.prepare(
-    "UPDATE products SET status = 'deleted' WHERE id = ? AND store_id = ?"
-  ).bind(productId, store.id).run();
+    const productId = parseInt(c.req.param('id'));
+    console.log('[DELETE PRODUCT] soft-deleting product id:', productId, 'store:', store.id);
+    await c.env.DB.prepare(
+      "UPDATE products SET status = 'deleted', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND store_id = ?"
+    ).bind(productId, store.id).run();
 
-  return c.json({ message: 'تم حذف المنتج' });
+    return c.json({ message: 'تم حذف المنتج' });
+  } catch (err: any) {
+    console.error('[DELETE PRODUCT] FATAL ERROR:', err?.message || err, err?.stack || '');
+    return c.json({ success: false, error: err?.message || 'Internal Server Error' }, 500);
+  }
 };
 
 api.post('/products', handleCreateProduct);
