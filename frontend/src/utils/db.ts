@@ -167,29 +167,30 @@ async function syncPgTables(pool: any) {
       ALTER TABLE products ADD COLUMN IF NOT EXISTS gallery TEXT;
       ALTER TABLE products ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT 'YER';
       ALTER TABLE products ADD COLUMN IF NOT EXISTS weight NUMERIC(10,2);
-      ALTER TABLE products ADD COLUMN IF NOT EXISTS tags TEXT;
-      ALTER TABLE products ADD COLUMN IF NOT EXISTS meta_title VARCHAR(255);
-      ALTER TABLE products ADD COLUMN IF NOT EXISTS meta_description TEXT;
-      ALTER TABLE products ADD COLUMN IF NOT EXISTS is_active INT DEFAULT 1;
-      ALTER TABLE products ADD COLUMN IF NOT EXISTS is_featured INT DEFAULT 0;
-      ALTER TABLE products ADD COLUMN IF NOT EXISTS featured INT DEFAULT 0;
-
-      UPDATE product_images SET url = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cdefs%3E%3ClinearGradient id='bg1' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%231e1b4b'/%3E%3Cstop offset='100%25' stop-color='%23312e81'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='512' height='512' fill='url(%23bg1)'/%3E%3Crect x='166' y='180' width='180' height='160' rx='40' fill='%23ffffff' shadow='0 10px 30px rgba(0,0,0,0.3)'/%3E%3Cpath d='M190 180v-40c0-36.5 29.5-66 66-66s66 29.5 66 66v40' fill='none' stroke='%23e2e8f0' stroke-width='16' stroke-linecap='round'/%3E%3Ccircle cx='216' cy='250' r='12' fill='%236366f1'/%3E%3Ccircle cx='296' cy='250' r='12' fill='%236366f1'/%3E%3Ctext x='51%25' y='82%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='22' font-weight='bold' fill='%23a5b4fc'%3Eسماعة لاسلكية عالية الجودة%3C/text%3E%3C/svg%3E";
-
-      UPDATE products SET image = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cdefs%3E%3ClinearGradient id='bg1' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%231e1b4b'/%3E%3Cstop offset='100%25' stop-color='%23312e81'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='512' height='512' fill='url(%23bg1)'/%3E%3Crect x='166' y='180' width='180' height='160' rx='40' fill='%23ffffff' shadow='0 10px 30px rgba(0,0,0,0.3)'/%3E%3Cpath d='M190 180v-40c0-36.5 29.5-66 66-66s66 29.5 66 66v40' fill='none' stroke='%23e2e8f0' stroke-width='16' stroke-linecap='round'/%3E%3Ccircle cx='216' cy='250' r='12' fill='%236366f1'/%3E%3Ccircle cx='296' cy='250' r='12' fill='%236366f1'/%3E%3Ctext x='51%25' y='82%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='22' font-weight='bold' fill='%23a5b4fc'%3Eسماعة لاسلكية عالية الجودة%3C/text%3E%3C/svg%3E";
-
-      DELETE FROM flash_sales WHERE title LIKE '%test%' OR title LIKE '%Test%';
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS image TEXT;
+      ALTER TABLE products ALTER COLUMN image TYPE TEXT;
 
       CREATE TABLE IF NOT EXISTS product_images (
         id SERIAL PRIMARY KEY,
         product_id INT NOT NULL,
         store_id INT,
-        url VARCHAR(255) NOT NULL,
+        url TEXT NOT NULL,
         alt TEXT,
         is_primary INT DEFAULT 0,
         sort_order INT DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+      ALTER TABLE product_images ADD COLUMN IF NOT EXISTS store_id INT;
+      ALTER TABLE product_images ADD COLUMN IF NOT EXISTS alt TEXT;
+      ALTER TABLE product_images ADD COLUMN IF NOT EXISTS is_primary INT DEFAULT 0;
+      ALTER TABLE product_images ALTER COLUMN url TYPE TEXT;
+
+      UPDATE product_images SET url = 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600' WHERE url LIKE '%placeholder%' OR url IS NULL OR url = '' OR url LIKE '%no-image%' OR url LIKE 'data:%';
+      UPDATE products SET image = 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600' WHERE image LIKE '%placeholder%' OR image IS NULL OR image = '' OR image LIKE '%no-image%' OR image LIKE 'data:%';
+
+      UPDATE products SET image = (SELECT url FROM product_images WHERE product_id = products.id ORDER BY is_primary DESC, id ASC LIMIT 1) WHERE EXISTS (SELECT 1 FROM product_images WHERE product_id = products.id);
+
+      DELETE FROM flash_sales WHERE title LIKE '%test%' OR title LIKE '%Test%';
       ALTER TABLE product_images ADD COLUMN IF NOT EXISTS store_id INT;
       ALTER TABLE product_images ADD COLUMN IF NOT EXISTS alt TEXT;
       ALTER TABLE product_images ADD COLUMN IF NOT EXISTS is_primary INT DEFAULT 0;
