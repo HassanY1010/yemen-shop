@@ -2,10 +2,10 @@ import pg from 'pg';
 const { Pool } = pg;
 
 let pgPool: any = null;
+const SUPABASE_FALLBACK_URL = 'postgresql://postgres.abybrwyyhuacyrexoibi:Hhaall112233HH@aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres';
 
 export function getPgPool() {
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString) return null;
+  const connectionString = process.env.DATABASE_URL || SUPABASE_FALLBACK_URL;
 
   if (!pgPool) {
     pgPool = new Pool({
@@ -18,12 +18,12 @@ export function getPgPool() {
 
 export class PgD1Database {
   pool: any;
-  constructor(pool: any) {
-    this.pool = pool;
+  constructor(pool?: any) {
+    this.pool = pool || getPgPool();
   }
 
   prepare(sql: string) {
-    const pool = this.pool;
+    const pool = this.pool || getPgPool();
 
     let pgSql = sql
       .replace(/datetime\('now',\s*'\+([0-9]+)\s*days?'\)/gi, "CURRENT_TIMESTAMP + INTERVAL '$1 days'")
