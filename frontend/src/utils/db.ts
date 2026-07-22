@@ -4,6 +4,27 @@ const { Pool } = pg;
 let pgPool: any = null;
 const SUPABASE_FALLBACK_URL = 'postgresql://postgres.abybrwyyhuacyrexoibi:Hhaall112233HH@aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres';
 
+async function syncPgTables(pool: any) {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS sessions (
+        id VARCHAR(255) PRIMARY KEY,
+        user_id INT NOT NULL,
+        store_id INT,
+        token VARCHAR(255) NOT NULL,
+        expires_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      ALTER TABLE sessions ADD COLUMN IF NOT EXISTS id VARCHAR(255);
+      ALTER TABLE sessions ADD COLUMN IF NOT EXISTS store_id INT;
+      ALTER TABLE sessions ADD COLUMN IF NOT EXISTS token VARCHAR(255);
+      ALTER TABLE sessions ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP;
+    `);
+  } catch (e) {
+    console.error('Pg Table Sync Error:', e);
+  }
+}
+
 async function syncPgSequences(pool: any) {
   const tables = ['users', 'stores', 'products', 'orders', 'categories', 'plans', 'coupons', 'order_items'];
   for (const table of tables) {
@@ -26,7 +47,7 @@ export function getPgPool() {
       connectionString,
       ssl: connectionString.includes('localhost') || connectionString.includes('127.0.0.1') ? false : { rejectUnauthorized: false }
     });
-    syncPgSequences(pgPool);
+    syncPgTables(pgPool).then(() => syncPgSequences(pgPool));
   }
   return pgPool;
 }

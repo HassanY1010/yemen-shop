@@ -172,7 +172,7 @@ app.get('/sitemap.xml', async (c) => {
   return c.text(xml, 200, { 'Content-Type': 'application/xml' });
 });
 app.get('/favicon.ico', (c) => {
-  return new Response(null, { status: 204 })
+  return c.body(null, 204)
 })
 
 
