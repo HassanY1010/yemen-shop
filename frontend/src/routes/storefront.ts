@@ -878,10 +878,16 @@ store.get('/:slug', async (c) => {
   ).bind(storeData.id).all();
 
   // Active flash sales
+  const nowIso = new Date().toISOString();
   const activeFlashSales = await c.env.DB.prepare(`
     SELECT * FROM flash_sales
-    WHERE store_id = ?
-  `).bind(storeData.id).all();
+    WHERE store_id = ? AND is_active = 1
+      AND (
+        (start_at IS NOT NULL AND start_at <= ? AND end_at >= ?) OR
+        (starts_at IS NOT NULL AND starts_at <= ? AND ends_at >= ?)
+      )
+      AND (max_quantity IS NULL OR sold_quantity < max_quantity)
+  `).bind(storeData.id, nowIso, nowIso, nowIso, nowIso).all();
   const flashSalesMap = new Map((activeFlashSales.results as any[]).map(s => [s.product_id, s]));
 
   function productCard(product: any): string {
@@ -1083,10 +1089,12 @@ store.get('/:slug/products', async (c) => {
   const activeFlashSales = await c.env.DB.prepare(`
     SELECT * FROM flash_sales
     WHERE store_id = ? AND is_active = 1
-      AND (start_at <= CURRENT_TIMESTAMP OR starts_at <= CURRENT_TIMESTAMP)
-      AND (end_at >= CURRENT_TIMESTAMP OR ends_at >= CURRENT_TIMESTAMP)
+      AND (
+        (start_at IS NOT NULL AND start_at <= ? AND end_at >= ?) OR
+        (starts_at IS NOT NULL AND starts_at <= ? AND ends_at >= ?)
+      )
       AND (max_quantity IS NULL OR sold_quantity < max_quantity)
-  `).bind(storeData.id).all();
+  `).bind(storeData.id, nowIso, nowIso, nowIso, nowIso).all();
   const flashSalesMap = new Map((activeFlashSales.results as any[]).map(s => [s.product_id, s]));
 
   return c.html(storeLayout(storeData.name, `
@@ -1259,12 +1267,14 @@ store.get('/:slug/products/:id', async (c) => {
   // Fetch active flash sale
   const flashSale = await c.env.DB.prepare(`
     SELECT * FROM flash_sales
-    WHERE product_id = ? AND is_active = 1
-      AND (start_at <= CURRENT_TIMESTAMP OR starts_at <= CURRENT_TIMESTAMP)
-      AND (end_at >= CURRENT_TIMESTAMP OR ends_at >= CURRENT_TIMESTAMP)
+    WHERE store_id = ? AND product_id = ? AND is_active = 1
+      AND (
+        (start_at IS NOT NULL AND start_at <= ? AND end_at >= ?) OR
+        (starts_at IS NOT NULL AND starts_at <= ? AND ends_at >= ?)
+      )
       AND (max_quantity IS NULL OR sold_quantity < max_quantity)
-    LIMIT 1
-  `).bind(productId).first() as any;
+    ORDER BY id DESC LIMIT 1
+  `).bind(storeData.id, productId, nowIso, nowIso, nowIso, nowIso).first() as any;
 
   // Fetch product variants
   const variantsDb = await c.env.DB.prepare(

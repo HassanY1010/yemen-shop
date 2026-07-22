@@ -177,6 +177,8 @@ async function syncPgTables(pool: any) {
         SELECT url FROM product_images WHERE product_id = products.id ORDER BY is_primary DESC, id ASC LIMIT 1
       ) WHERE (image IS NULL OR image = '') AND EXISTS (SELECT 1 FROM product_images WHERE product_id = products.id);
 
+      DELETE FROM flash_sales WHERE title LIKE '%test%' OR title LIKE '%Test%';
+
       CREATE TABLE IF NOT EXISTS product_images (
         id SERIAL PRIMARY KEY,
         product_id INT NOT NULL,
