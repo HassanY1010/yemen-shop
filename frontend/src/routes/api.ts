@@ -421,8 +421,7 @@ api.put('/dashboard/orders/:id/payment-status', handleUpdatePaymentStatus);
 
 
 
-// ─── Store Settings API ───────────────────────────────────────
-api.put('/store', async (c) => {
+const handleUpdateStore = async (c: any) => {
   const store = await getStore(c) as any;
   if (!store) return c.json({ error: 'Not found' }, 404);
 
@@ -447,8 +446,9 @@ api.put('/store', async (c) => {
   
   for (const field of allowedFields) {
     if (data[field] !== undefined) {
+      const val = typeof data[field] === 'object' ? JSON.stringify(data[field]) : data[field];
       updates.push(`${field} = ?`);
-      values.push(data[field]);
+      values.push(val);
     }
   }
   
@@ -456,7 +456,7 @@ api.put('/store', async (c) => {
     return c.json({ message: 'لا توجد بيانات للتحديث' }, 400);
   }
   
-  updates.push("updated_at = datetime('now')");
+  updates.push("updated_at = CURRENT_TIMESTAMP");
   values.push(store.id);
   
   await c.env.DB.prepare(
@@ -464,7 +464,10 @@ api.put('/store', async (c) => {
   ).bind(...values).run();
 
   return c.json({ message: 'تم حفظ الإعدادات' });
-});
+};
+
+api.put('/store', handleUpdateStore);
+api.put('/dashboard/store', handleUpdateStore);
 
 // ─── Subscription API ─────────────────────────────────────────
 api.post('/subscribe', async (c) => {
