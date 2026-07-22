@@ -48,24 +48,52 @@ export const memoryUploads = new Map<string, ArrayBuffer>();
 
 // ─── Image & Asset Routes ─────────────────────────────────────
 app.get('/uploads/:filename', async (c) => {
-  const filename = c.req.param('filename');
-  let fileData: ArrayBuffer | Uint8Array | null = memoryUploads.get(filename) || null;
+  const rawFilename = c.req.param('filename');
+  const filename = path.basename(rawFilename);
+  let fileData: ArrayBuffer | Uint8Array | Response | null = memoryUploads.get(filename) || null;
 
+  // 1. Try reading from local disk (multiple candidate directories)
   if (!fileData) {
-    try {
-      const filePath = path.join(process.cwd(), 'public', 'uploads', filename);
-      fileData = await fs.readFile(filePath);
-    } catch (e) {}
+    const candidatePaths = [
+      path.join(process.cwd(), 'public', 'uploads', filename),
+      path.join(process.cwd(), '..', 'backend', 'public', 'storage', 'uploads', filename),
+      path.join(process.cwd(), '..', 'backend', 'storage', 'app', 'public', 'uploads', filename)
+    ];
+
+    for (const filePath of candidatePaths) {
+      try {
+        fileData = await fs.readFile(filePath);
+        if (fileData) break;
+      } catch (e) {}
+    }
   }
 
+  // 2. Try Cloudflare KV if available
   if (!fileData && c.env?.SESSIONS) {
     try {
       fileData = await c.env.SESSIONS.get(`upload:${filename}`, 'arrayBuffer');
     } catch (e) {}
   }
 
+  // 3. Fallback: Proxy from Supabase Storage directly if not found locally
   if (!fileData) {
-    return c.text('Not Found', 404);
+    try {
+      const supabaseUrl = c.env?.SUPABASE_URL || process.env.SUPABASE_URL || 'https://abybrwyyhuacyrexoibi.supabase.co';
+      const bucket = c.env?.SUPABASE_STORAGE_BUCKET || process.env.SUPABASE_STORAGE_BUCKET || 'uploads';
+      const supaRes = await fetch(`${supabaseUrl}/storage/v1/object/public/${bucket}/${filename}`);
+      
+      if (supaRes.ok) {
+        const buffer = await supaRes.arrayBuffer();
+        memoryUploads.set(filename, buffer);
+        fileData = buffer;
+      }
+    } catch (supaProxyErr) {
+      console.warn(`[Proxy Warning] Could not fetch ${filename} from Supabase:`, supaProxyErr);
+    }
+  }
+
+  if (!fileData) {
+    return c.text('File Not Found', 404);
   }
 
   const ext = filename.split('.').pop()?.toLowerCase();
@@ -74,6 +102,7 @@ app.get('/uploads/:filename', async (c) => {
   else if (ext === 'webp') contentType = 'image/webp';
   else if (ext === 'gif') contentType = 'image/gif';
   else if (ext === 'svg') contentType = 'image/svg+xml';
+  else if (ext === 'ico') contentType = 'image/x-icon';
 
   return new Response(fileData as any, {
     status: 200,
@@ -83,6 +112,7 @@ app.get('/uploads/:filename', async (c) => {
     }
   });
 });
+
 
 
 

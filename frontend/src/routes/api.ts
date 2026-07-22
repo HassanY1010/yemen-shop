@@ -1170,51 +1170,99 @@ api.post('/store/:slug/orders', async (c) => {
 
 
 
-// ─── Local File Upload API (Cloudflare KV + Memory Backed) ────────────────
+// ─── File Upload API (Supabase Storage + Local & Memory Fallback) ──────
 const handleUpload = async (c: any) => {
   try {
     const body = await c.req.parseBody();
-    const file = body['file'];
-    
-    if (!file || !(file instanceof File)) {
-      return c.json({ message: 'الملف غير صالح أو لم يتم اختياره' }, 400);
-    }
-    
-    // Extract file extension safely
-    const originalName = file.name || 'image.jpg';
-    const ext = originalName.substring(originalName.lastIndexOf('.')) || '.jpg';
-    const filename = `${crypto.randomUUID()}${ext}`;
-    
-    // Read buffer and save to memory map + disk + KV binding
-    const buffer = await file.arrayBuffer();
-    memoryUploads.set(filename, buffer);
+    let rawFile = body['file'] || body['image'] || body['logo'] || body['receipt_image'] || body['avatar'] || Object.values(body)[0];
 
+    if (!rawFile || typeof rawFile !== 'object' || typeof rawFile.arrayBuffer !== 'function') {
+      console.error('[Upload Error] Invalid file payload:', rawFile);
+      return c.json({ success: false, message: 'الملف غير صالح أو لم يتم اختياره' }, 400);
+    }
+
+    const originalName = rawFile.name || 'image.jpg';
+    const ext = (originalName.substring(originalName.lastIndexOf('.')) || '.jpg').toLowerCase();
+    const allowedExts = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.svg', '.ico'];
+
+    if (!allowedExts.includes(ext)) {
+      return c.json({ success: false, message: 'نوع الملف غير مدعوم. الأنواع المسموحة: JPG, PNG, WEBP, GIF, SVG' }, 400);
+    }
+
+    let contentType = rawFile.type || 'image/jpeg';
+    if (ext === '.png') contentType = 'image/png';
+    else if (ext === '.webp') contentType = 'image/webp';
+    else if (ext === '.gif') contentType = 'image/gif';
+    else if (ext === '.svg') contentType = 'image/svg+xml';
+    else if (ext === '.ico') contentType = 'image/x-icon';
+
+    const buffer = await rawFile.arrayBuffer();
+    const fileBuffer = Buffer.from(buffer);
+    const filename = `${crypto.randomUUID()}${ext}`;
+
+    const supabaseUrl = c.env?.SUPABASE_URL || process.env.SUPABASE_URL || 'https://abybrwyyhuacyrexoibi.supabase.co';
+    const supabaseKey = c.env?.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || c.env?.SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFieWJyd3l5aHVhY3lyZXhvaWJpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDY5MTY1NCwiZXhwIjoyMTAwMjY3NjU0fQ.33WnX0G0vNqT_F0j3M-E6XbX6uNCiszRbdS5Hi5OylQ';
+    const bucket = c.env?.SUPABASE_STORAGE_BUCKET || process.env.SUPABASE_STORAGE_BUCKET || 'uploads';
+
+    let finalUrl = `/uploads/${filename}`;
+
+    try {
+      const uploadRes = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${filename}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${supabaseKey}`,
+          'apikey': supabaseKey,
+          'Content-Type': contentType,
+          'x-upsert': 'true'
+        },
+        body: fileBuffer
+      });
+
+      if (uploadRes.ok) {
+        finalUrl = `${supabaseUrl}/storage/v1/object/public/${bucket}/${filename}`;
+        console.log('[Supabase Upload] Successfully uploaded file to Supabase Storage:', finalUrl);
+      } else {
+        const errText = await uploadRes.text();
+        console.warn(`[Supabase Upload Warning] Status ${uploadRes.status}: ${errText}`);
+      }
+    } catch (supaErr) {
+      console.error('[Supabase Upload Error] Failed to reach Supabase Storage:', supaErr);
+    }
+
+    // Backup to local memory map and disk
+    memoryUploads.set(filename, buffer);
     try {
       const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
       await fs.mkdir(uploadsDir, { recursive: true });
-      await fs.writeFile(path.join(uploadsDir, filename), Buffer.from(buffer));
-    } catch (e) {
-      console.warn('Disk save warning:', e);
+      await fs.writeFile(path.join(uploadsDir, filename), fileBuffer);
+    } catch (diskErr) {
+      console.warn('[Disk Save Warning]:', diskErr);
     }
 
-    if (c.env.SESSIONS) {
+    if (c.env?.SESSIONS) {
       try {
         await c.env.SESSIONS.put(`upload:${filename}`, buffer);
-      } catch (e) {
-        console.warn('KV put warning:', e);
+      } catch (kvErr) {
+        console.warn('[KV Put Warning]:', kvErr);
       }
     }
-    
-    const url = `/uploads/${filename}`;
-    return c.json({ success: true, url, url_path: url, filename });
+
+    return c.json({
+      success: true,
+      url: finalUrl,
+      url_path: finalUrl,
+      local_url: `/uploads/${filename}`,
+      filename
+    });
   } catch (error: any) {
-    console.error('File upload error:', error);
-    return c.json({ message: 'خطأ أثناء رفع الملف: ' + error.message }, 500);
+    console.error('File upload fatal error:', error);
+    return c.json({ success: false, message: 'خطأ أثناء رفع الملف: ' + error.message }, 500);
   }
 };
 
 api.post('/upload', handleUpload);
 api.post('/dashboard/upload', handleUpload);
+
 
 // ─── Flash Sales API ───────────────────────────────────────────
 api.get('/flash-sales', async (c) => {

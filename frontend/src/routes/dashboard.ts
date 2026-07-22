@@ -4,7 +4,7 @@
 import { Hono } from 'hono';
 import { Bindings, Variables } from '../types/index';
 import { dashboardLayout } from '../utils/templates';
-import { formatCurrency, getOrderStatusLabel, getOrderStatusColor } from '../utils/helpers';
+import { formatCurrency, getOrderStatusLabel, getOrderStatusColor, getImageUrl, DEFAULT_PRODUCT_IMAGE, DEFAULT_STORE_LOGO, DEFAULT_AVATAR } from '../utils/helpers';
 import { getToken } from '../middleware/auth';
 
 const dashboard = new Hono<{ Bindings: Bindings; Variables: Variables }>();
@@ -3417,7 +3417,7 @@ function productForm(store: any, categories: any[], product: any | null): string
             // Replace loading state with uploaded item
             div.className = 'flex items-center gap-3 p-2.5 bg-gray-50 dark:bg-slate-800 border border-std rounded-xl';
             div.innerHTML = \`
-              <img src="\${res.data.url}" class="w-12 h-12 object-cover rounded-lg flex-shrink-0" onerror="this.src='https://via.placeholder.com/48'">
+              <img src="${res.data.url}" class="w-12 h-12 object-cover rounded-lg flex-shrink-0" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}';">
               <input type="text" value="\${res.data.url}" dir="ltr" class="flex-1 px-3 py-1.5 border border-std rounded-lg text-sm bg-page text-main image-input">
               <button type="button" onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-600 p-1 flex-shrink-0"><i class="fas fa-times"></i></button>
             \`;

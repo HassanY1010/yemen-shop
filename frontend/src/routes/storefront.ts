@@ -3,7 +3,7 @@
 // ============================================
 import { Hono } from 'hono';
 import { Bindings, Variables } from '../types/index';
-import { formatCurrency, hashPassword, verifyPassword, generateToken } from '../utils/helpers';
+import { formatCurrency, hashPassword, verifyPassword, generateToken, getImageUrl, DEFAULT_PRODUCT_IMAGE, DEFAULT_STORE_LOGO } from '../utils/helpers';
 import { baseLayout } from '../utils/templates';
 
 const store = new Hono<{ Bindings: Bindings; Variables: Variables }>();
@@ -207,7 +207,7 @@ function storeLayout(
         <!-- Logo -->
         <a href="/store/${storeData.slug}" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
           ${storeData.logo 
-            ? `<img src="${storeData.logo}" alt="${storeName}" class="w-10 h-10 object-cover rounded-xl">` 
+            ? `<img src="${getImageUrl(storeData.logo, DEFAULT_STORE_LOGO)}" alt="${storeName}" class="w-10 h-10 object-cover rounded-xl" onerror="this.onerror=null;this.src='${DEFAULT_STORE_LOGO}';">` 
             : `<div class="w-10 h-10 rounded-xl text-white flex items-center justify-center font-bold text-lg" style="background: ${primary};">${storeName[0]}</div>`
           }
           <span class="font-bold text-main text-lg">${storeName}</span>
@@ -1306,8 +1306,8 @@ store.get('/:slug/products/:id', async (c) => {
   }
   const price = basePrice;
 
-  const imageList = images.results as any[];
-  const mainImage = imageList[0]?.url || 'https://via.placeholder.com/600x600?text=No+Image';
+  const imageList = (images.results && images.results.length > 0) ? images.results as any[] : (product.image ? [{ url: product.image }] : []);
+  const mainImage = getImageUrl(imageList[0]?.url || product.image, DEFAULT_PRODUCT_IMAGE);
 
   const headExtra = `
   <!-- Open Graph / Facebook -->
