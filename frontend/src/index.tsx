@@ -175,6 +175,7 @@ app.use('/static/*', async (c, next) => {
 });
 app.get('/manifest.json', (c) => c.text(manifestContent, 200, { 'Content-Type': 'application/json' }))
 app.get('/sw.js', (c) => c.text(swContent, 200, { 'Content-Type': 'application/javascript' }))
+app.get('/favicon.ico', (c) => c.text('', 204))
 app.get('/robots.txt', (c) => {
   const host = c.req.header('host') || 'localhost';
   const proto = host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https';

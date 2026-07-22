@@ -369,7 +369,9 @@ export function baseLayout(
 
     // ── Service Worker (PWA) ──
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+      });
     }
 
     // ── PWA Install Prompt ──
