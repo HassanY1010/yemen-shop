@@ -9,6 +9,7 @@ async function syncPgTables(pool: any) {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
+        store_id INT,
         name VARCHAR(255) NOT NULL,
         email VARCHAR(255) UNIQUE NOT NULL,
         password VARCHAR(255) NOT NULL,
@@ -18,6 +19,7 @@ async function syncPgTables(pool: any) {
         is_active INT DEFAULT 1,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS store_id INT;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(50);
       ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar TEXT;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active INT DEFAULT 1;
@@ -90,6 +92,7 @@ async function syncPgTables(pool: any) {
         sku VARCHAR(100),
         barcode VARCHAR(100),
         stock INT DEFAULT 0,
+        total_sold INT DEFAULT 0,
         image VARCHAR(255),
         gallery TEXT,
         status VARCHAR(50) DEFAULT 'active',
@@ -102,14 +105,17 @@ async function syncPgTables(pool: any) {
       ALTER TABLE products ADD COLUMN IF NOT EXISTS is_active INT DEFAULT 1;
       ALTER TABLE products ADD COLUMN IF NOT EXISTS is_featured INT DEFAULT 0;
       ALTER TABLE products ADD COLUMN IF NOT EXISTS featured INT DEFAULT 0;
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS total_sold INT DEFAULT 0;
 
       CREATE TABLE IF NOT EXISTS product_images (
         id SERIAL PRIMARY KEY,
         product_id INT NOT NULL,
         url VARCHAR(255) NOT NULL,
+        is_primary INT DEFAULT 0,
         sort_order INT DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+      ALTER TABLE product_images ADD COLUMN IF NOT EXISTS is_primary INT DEFAULT 0;
 
       CREATE TABLE IF NOT EXISTS coupons (
         id SERIAL PRIMARY KEY,
@@ -130,14 +136,20 @@ async function syncPgTables(pool: any) {
       CREATE TABLE IF NOT EXISTS flash_sales (
         id SERIAL PRIMARY KEY,
         store_id INT NOT NULL,
+        product_id INT,
         title VARCHAR(255),
         discount_percentage DECIMAL(5,2) DEFAULT 0,
+        max_quantity INT,
+        sold_quantity INT DEFAULT 0,
         starts_at TIMESTAMP,
         ends_at TIMESTAMP,
         status VARCHAR(50) DEFAULT 'active',
         is_active INT DEFAULT 1,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+      ALTER TABLE flash_sales ADD COLUMN IF NOT EXISTS product_id INT;
+      ALTER TABLE flash_sales ADD COLUMN IF NOT EXISTS max_quantity INT;
+      ALTER TABLE flash_sales ADD COLUMN IF NOT EXISTS sold_quantity INT DEFAULT 0;
       ALTER TABLE flash_sales ADD COLUMN IF NOT EXISTS is_active INT DEFAULT 1;
 
       CREATE TABLE IF NOT EXISTS flash_sale_products (
@@ -285,11 +297,19 @@ export class PgD1Database {
           .replace('%S', 'SS');
         return `TO_CHAR(${col}, '${pgFmt}')`;
       })
+      .replace(/datetime\('now',\s*'-([0-9]+)\s*days?'\)/gi, "CURRENT_TIMESTAMP - INTERVAL '$1 days'")
       .replace(/datetime\('now',\s*'\+([0-9]+)\s*days?'\)/gi, "CURRENT_TIMESTAMP + INTERVAL '$1 days'")
       .replace(/datetime\('now',\s*'-([0-9]+)\s*hours?'\)/gi, "CURRENT_TIMESTAMP - INTERVAL '$1 hours'")
+      .replace(/datetime\('now',\s*'\+([0-9]+)\s*hours?'\)/gi, "CURRENT_TIMESTAMP + INTERVAL '$1 hours'")
+      .replace(/datetime\('now',\s*'-([0-9]+)\s*months?'\)/gi, "CURRENT_TIMESTAMP - INTERVAL '$1 months'")
       .replace(/datetime\('now',\s*'\+([0-9]+)\s*months?'\)/gi, "CURRENT_TIMESTAMP + INTERVAL '$1 months'")
+      .replace(/datetime\('now',\s*'start of month'\)/gi, "DATE_TRUNC('month', CURRENT_TIMESTAMP)")
       .replace(/datetime\('now'\)/gi, 'CURRENT_TIMESTAMP')
+      .replace(/datetime\(([^,]+),\s*'-([0-9]+)\s*days?'\)/gi, "$1 - INTERVAL '$2 days'")
+      .replace(/datetime\(([^,]+),\s*'\+([0-9]+)\s*days?'\)/gi, "$1 + INTERVAL '$2 days'")
+      .replace(/datetime\(([^)]+)\)/gi, "$1::timestamp")
       .replace(/DATE\('now',\s*'\+([0-9]+)\s*days?'\)/gi, "CURRENT_TIMESTAMP + INTERVAL '$1 days'")
+      .replace(/DATE\('now',\s*'-([0-9]+)\s*days?'\)/gi, "CURRENT_TIMESTAMP - INTERVAL '$1 days'")
       .replace(/DATE\('now'\)/gi, 'CURRENT_DATE');
 
     let paramIndex = 1;
