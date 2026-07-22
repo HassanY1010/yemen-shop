@@ -353,8 +353,7 @@ async function syncPgTables(pool: any) {
       ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount NUMERIC(10,2) DEFAULT 0;
       ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(10,2) DEFAULT 0;
       ALTER TABLE orders ADD COLUMN IF NOT EXISTS tax NUMERIC(10,2) DEFAULT 0;
-      ALTER TABLE orders ADD COLUMN IF NOT EXISTS admin_notes TEXT;
-      ALTER TABLE orders ADD COLUMN IF NOT EXISTS receipt_image TEXT;
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT 'YER';
 
       CREATE TABLE IF NOT EXISTS order_items (
         id SERIAL PRIMARY KEY,
@@ -363,6 +362,7 @@ async function syncPgTables(pool: any) {
         product_id INT,
         product_name VARCHAR(255),
         product_sku VARCHAR(100),
+        variant VARCHAR(255),
         price NUMERIC(10,2) DEFAULT 0,
         quantity INT DEFAULT 1,
         total NUMERIC(10,2) DEFAULT 0,
@@ -370,6 +370,7 @@ async function syncPgTables(pool: any) {
       );
       ALTER TABLE order_items ADD COLUMN IF NOT EXISTS store_id INT;
       ALTER TABLE order_items ADD COLUMN IF NOT EXISTS product_sku VARCHAR(100);
+      ALTER TABLE order_items ADD COLUMN IF NOT EXISTS variant VARCHAR(255);
 
       CREATE TABLE IF NOT EXISTS platform_settings (
         id SERIAL PRIMARY KEY,

@@ -978,6 +978,196 @@ api.post('/store/:slug/coupons/validate', async (c) => {
   return c.json({ valid: true, id: coupon.id, discount, type: coupon.type, value: coupon.value });
 });
 
+// Create Order API for storefront checkout
+api.post('/store/:slug/orders', async (c) => {
+  try {
+    const slug = c.req.param('slug');
+    const storeData = await c.env.DB.prepare(
+      "SELECT * FROM stores WHERE slug = ? AND status = 'active'"
+    ).bind(slug).first() as any;
+
+    if (!storeData) return c.json({ message: 'المتجر غير موجود' }, 404);
+
+    const body = await c.req.json() as any;
+    const {
+      customer_name,
+      customer_phone,
+      customer_email,
+      shipping_city,
+      shipping_address,
+      notes,
+      items,
+      coupon_id,
+      discount_amount,
+      payment_method,
+      receipt_image
+    } = body;
+
+    if (!customer_name || !customer_phone || !items || !Array.isArray(items) || items.length === 0) {
+      return c.json({ message: 'الاسم ورقم الهاتف وعنصر واحد على الأقل في السلة مطلوبة' }, 400);
+    }
+
+    // Save base64 receipt image to disk if provided
+    let savedReceiptUrl = null;
+    if (receipt_image && typeof receipt_image === 'string' && receipt_image.startsWith('data:image')) {
+      try {
+        const matches = receipt_image.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
+        if (matches) {
+          const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
+          const base64Data = matches[2];
+          const filename = `receipt-${crypto.randomUUID()}.${ext}`;
+          const buffer = Buffer.from(base64Data, 'base64');
+
+          const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
+          await fs.mkdir(uploadsDir, { recursive: true });
+          await fs.writeFile(path.join(uploadsDir, filename), buffer);
+
+          savedReceiptUrl = `/uploads/${filename}`;
+        } else {
+          savedReceiptUrl = receipt_image;
+        }
+      } catch (e) {
+        console.warn('Failed to save receipt image to disk, falling back:', e);
+        savedReceiptUrl = receipt_image;
+      }
+    } else {
+      savedReceiptUrl = receipt_image || null;
+    }
+
+    // Calculate totals
+    let subtotal = 0;
+    const itemRecords: any[] = [];
+
+    for (const item of items) {
+      const prodId = parseInt(item.product_id);
+      if (!prodId) continue;
+
+      const product = await c.env.DB.prepare(
+        "SELECT id, name, price, sale_price, currency, sku, stock FROM products WHERE id = ? AND store_id = ?"
+      ).bind(prodId, storeData.id).first() as any;
+
+      if (product) {
+        const unitPrice = parseFloat(product.sale_price || product.price) || 0;
+        const qty = Math.max(1, parseInt(item.quantity) || 1);
+        const itemTotal = unitPrice * qty;
+        subtotal += itemTotal;
+
+        itemRecords.push({
+          product_id: product.id,
+          product_name: product.name,
+          product_sku: product.sku || '',
+          price: unitPrice,
+          quantity: qty,
+          total: itemTotal,
+          variant: item.variant || ''
+        });
+
+        // Decrease stock if stock management is enabled
+        if (product.stock !== undefined && product.stock > 0) {
+          await c.env.DB.prepare(
+            "UPDATE products SET stock = MAX(0, stock - ?) WHERE id = ?"
+          ).bind(qty, product.id).run();
+        }
+      }
+    }
+
+    if (itemRecords.length === 0) {
+      return c.json({ message: 'المنتجات المطلوبة غير متوفرة' }, 400);
+    }
+
+    // Calculate shipping cost from store shipping_rates
+    let shippingCost = 0;
+    if (shipping_city && storeData.shipping_rates) {
+      try {
+        const rates = typeof storeData.shipping_rates === 'string' ? JSON.parse(storeData.shipping_rates) : storeData.shipping_rates;
+        if (Array.isArray(rates)) {
+          const cleanCity = shipping_city.trim().toLowerCase();
+          const match = rates.find((r: any) => r.city && r.city.trim().toLowerCase() === cleanCity);
+          if (match) shippingCost = parseFloat(match.cost) || 0;
+          else {
+            const fallback = rates.find((r: any) => r.city && (r.city.trim().toLowerCase() === 'الكل' || r.city.trim().toLowerCase() === 'all'));
+            if (fallback) shippingCost = parseFloat(fallback.cost) || 0;
+          }
+        }
+      } catch (e) {}
+    }
+
+    const discountVal = parseFloat(discount_amount) || 0;
+    const finalTotal = Math.max(0, subtotal - discountVal + shippingCost);
+
+    const orderNumber = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
+    const currency = storeData.currency || 'YER';
+
+    // Insert order
+    const orderResult = await c.env.DB.prepare(`
+      INSERT INTO orders (
+        store_id, order_number, customer_name, customer_phone, customer_email,
+        customer_city, shipping_city, customer_address, shipping_address,
+        subtotal, shipping, shipping_cost, discount, discount_amount, total,
+        payment_method, payment_status, status, receipt_image, notes, currency
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      storeData.id,
+      orderNumber,
+      customer_name,
+      customer_phone,
+      customer_email || null,
+      shipping_city || null,
+      shipping_city || null,
+      shipping_address || null,
+      shipping_address || null,
+      subtotal,
+      shippingCost,
+      shippingCost,
+      discountVal,
+      discountVal,
+      finalTotal,
+      payment_method || 'cod',
+      payment_method === 'receipt' ? 'under_review' : 'pending',
+      'pending',
+      savedReceiptUrl,
+      notes || null,
+      currency
+    ).run();
+
+    const orderId = orderResult.meta?.last_row_id;
+
+    // Insert order items
+    for (const item of itemRecords) {
+      await c.env.DB.prepare(`
+        INSERT INTO order_items (order_id, store_id, product_id, product_name, product_sku, price, quantity, total, variant)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        orderId,
+        storeData.id,
+        item.product_id,
+        item.product_name,
+        item.product_sku,
+        item.price,
+        item.quantity,
+        item.total,
+        item.variant
+      ).run();
+    }
+
+    // Increment coupon used_count if coupon_id passed
+    if (coupon_id) {
+      await c.env.DB.prepare("UPDATE coupons SET used_count = used_count + 1 WHERE id = ?").bind(coupon_id).run();
+    }
+
+    return c.json({
+      success: true,
+      order_number: orderNumber,
+      total: finalTotal,
+      currency,
+      message: 'تم إنشاء الطلب بنجاح'
+    }, 201);
+  } catch (err: any) {
+    console.error('[CREATE ORDER ERROR]:', err?.message || err, err?.stack || '');
+    return c.json({ message: 'خطأ في معالجة الطلب: ' + (err?.message || 'Internal Server Error') }, 500);
+  }
+});
+
 
 
 // ─── Local File Upload API (Cloudflare KV + Memory Backed) ────────────────
