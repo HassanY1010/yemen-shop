@@ -63,17 +63,18 @@ export function getCurrentStoreId(c: AppContext): number | null {
 export async function ensurePlansSeeded(db: any) {
   if (!db) return;
   try {
-    try { await db.prepare("ALTER TABLE plans ADD COLUMN duration_days INTEGER DEFAULT 30").run(); } catch {}
-    try { await db.prepare("ALTER TABLE plans ADD COLUMN max_stores INTEGER DEFAULT 1").run(); } catch {}
-    try { await db.prepare("ALTER TABLE stores ADD COLUMN subscription_status VARCHAR(50) DEFAULT 'active'").run(); } catch {}
-    try { await db.prepare("ALTER TABLE stores ADD COLUMN subscription_starts_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP").run(); } catch {}
-    try { await db.prepare("ALTER TABLE stores ADD COLUMN subscription_ends_at TIMESTAMP").run(); } catch {}
+    try { await db.prepare("ALTER TABLE plans ADD COLUMN IF NOT EXISTS duration_days INTEGER DEFAULT 30").run(); } catch {}
+    try { await db.prepare("ALTER TABLE plans ADD COLUMN IF NOT EXISTS max_stores INTEGER DEFAULT 1").run(); } catch {}
+    try { await db.prepare("ALTER TABLE plans ADD COLUMN IF NOT EXISTS max_categories INTEGER DEFAULT 20").run(); } catch {}
+    try { await db.prepare("ALTER TABLE stores ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(50) DEFAULT 'active'").run(); } catch {}
+    try { await db.prepare("ALTER TABLE stores ADD COLUMN IF NOT EXISTS subscription_starts_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP").run(); } catch {}
+    try { await db.prepare("ALTER TABLE stores ADD COLUMN IF NOT EXISTS subscription_ends_at TIMESTAMP").run(); } catch {}
 
     const plansData = [
-      { slug: 'free', name: 'Free (تجربة مجانية 5 أيام)', price: 0, duration_days: 5, max_stores: 1, max_products: 5, max_orders: 50, max_staff: 1 },
-      { slug: 'basic', name: 'Basic', price: 15000, duration_days: 30, max_stores: 1, max_products: 50, max_orders: 500, max_staff: 2 },
-      { slug: 'pro', name: 'Pro', price: 30000, duration_days: 30, max_stores: 1, max_products: 200, max_orders: 2000, max_staff: 5 },
-      { slug: 'business', name: 'Business', price: 60000, duration_days: 30, max_stores: -1, max_products: -1, max_orders: -1, max_staff: -1 }
+      { slug: 'free',     name: 'Free (تجربة مجانية 5 أيام)', price: 0,     duration_days: 5,  max_stores: 1,  max_products: 5,   max_categories: 5,   max_orders: 50,   max_staff: 1 },
+      { slug: 'basic',    name: 'Basic',                        price: 15000, duration_days: 30, max_stores: 1,  max_products: 50,  max_categories: 20,  max_orders: 500,  max_staff: 2 },
+      { slug: 'pro',      name: 'Pro',                          price: 30000, duration_days: 30, max_stores: 1,  max_products: 200, max_categories: 50,  max_orders: 2000, max_staff: 5 },
+      { slug: 'business', name: 'Business',                     price: 60000, duration_days: 30, max_stores: -1, max_products: -1,  max_categories: -1,  max_orders: -1,   max_staff: -1 }
     ];
 
     for (const p of plansData) {
@@ -81,13 +82,13 @@ export async function ensurePlansSeeded(db: any) {
       if (existing) {
         try {
           await db.prepare(`
-            UPDATE plans 
-            SET name = ?, price = ?, duration_days = ?, max_stores = ?, max_products = ?, max_orders = ?, max_staff = ?, updated_at = datetime('now')
+            UPDATE plans
+            SET name = ?, price = ?, duration_days = ?, max_stores = ?, max_products = ?, max_categories = ?, max_orders = ?, max_staff = ?, updated_at = CURRENT_TIMESTAMP
             WHERE slug = ?
-          `).bind(p.name, p.price, p.duration_days, p.max_stores, p.max_products, p.max_orders, p.max_staff, p.slug).run();
+          `).bind(p.name, p.price, p.duration_days, p.max_stores, p.max_products, p.max_categories, p.max_orders, p.max_staff, p.slug).run();
         } catch (e) {
           await db.prepare(`
-            UPDATE plans 
+            UPDATE plans
             SET name = ?, price = ?, max_products = ?, max_orders = ?, max_staff = ?
             WHERE slug = ?
           `).bind(p.name, p.price, p.max_products, p.max_orders, p.max_staff, p.slug).run();
@@ -95,9 +96,9 @@ export async function ensurePlansSeeded(db: any) {
       } else {
         try {
           await db.prepare(`
-            INSERT INTO plans (slug, name, price, duration_days, max_stores, max_products, max_orders, max_staff, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-          `).bind(p.slug, p.name, p.price, p.duration_days, p.max_stores, p.max_products, p.max_orders, p.max_staff).run();
+            INSERT INTO plans (slug, name, price, duration_days, max_stores, max_products, max_categories, max_orders, max_staff, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+          `).bind(p.slug, p.name, p.price, p.duration_days, p.max_stores, p.max_products, p.max_categories, p.max_orders, p.max_staff).run();
         } catch (e) {
           await db.prepare(`
             INSERT INTO plans (slug, name, price, max_products, max_orders, max_staff)
@@ -119,14 +120,20 @@ export async function checkSubscriptionLimit(
   storeId: number,
   type: 'products' | 'categories' | 'staff' | 'orders'
 ): Promise<{ allowed: boolean; current: number; limit: number; message?: string }> {
-  await ensurePlansSeeded(c.env.DB);
+  try {
+    await ensurePlansSeeded(c.env.DB);
+  } catch (e) {
+    console.error('[checkSubscriptionLimit] ensurePlansSeeded failed:', e);
+  }
 
+  // Use LEFT JOIN so stores without a plan_id still get defaults
   const store = await c.env.DB.prepare(
-    `SELECT s.*, p.max_products, p.max_categories, p.max_staff, p.max_orders 
-     FROM stores s JOIN plans p ON s.plan_id = p.id 
+    `SELECT s.*, p.max_products, p.max_categories, p.max_staff, p.max_orders
+     FROM stores s LEFT JOIN plans p ON s.plan_id = p.id
      WHERE s.id = ?`
   ).bind(storeId).first() as any;
 
+  // If store not found at all, block — but if plan is missing, use generous defaults
   if (!store) return { allowed: false, current: 0, limit: 0, message: 'المتجر غير موجود' };
 
   let current = 0;
@@ -138,21 +145,22 @@ export async function checkSubscriptionLimit(
       'SELECT COUNT(*) as count FROM products WHERE store_id = ? AND status != ?'
     ).bind(storeId, 'deleted').first() as any;
     current = result?.count || 0;
-    limit = store.max_products !== undefined ? store.max_products : 5;
+    // Default to 50 if plan is not linked or max_products is null
+    limit = (store.max_products !== null && store.max_products !== undefined) ? store.max_products : 50;
     label = 'منتجات';
   } else if (type === 'categories') {
     const result = await c.env.DB.prepare(
       'SELECT COUNT(*) as count FROM categories WHERE store_id = ?'
     ).bind(storeId).first() as any;
     current = result?.count || 0;
-    limit = store.max_categories !== undefined ? store.max_categories : -1;
+    limit = (store.max_categories !== null && store.max_categories !== undefined) ? store.max_categories : 20;
     label = 'أقسام';
   } else if (type === 'staff') {
     const result = await c.env.DB.prepare(
       'SELECT COUNT(*) as count FROM store_staff WHERE store_id = ? AND is_active = 1'
     ).bind(storeId).first() as any;
     current = result?.count || 0;
-    limit = store.max_staff !== undefined ? store.max_staff : 1;
+    limit = (store.max_staff !== null && store.max_staff !== undefined) ? store.max_staff : 2;
     label = 'موظفين';
   } else if (type === 'orders') {
     const today = new Date();
@@ -161,7 +169,7 @@ export async function checkSubscriptionLimit(
       "SELECT COUNT(*) as count FROM orders WHERE store_id = ? AND created_at >= ?"
     ).bind(storeId, firstDay).first() as any;
     current = result?.count || 0;
-    limit = store.max_orders !== undefined ? store.max_orders : -1;
+    limit = (store.max_orders !== null && store.max_orders !== undefined) ? store.max_orders : -1;
     label = 'طلبات هذا الشهر';
   }
 
