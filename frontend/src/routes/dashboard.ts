@@ -3419,7 +3419,7 @@ function productForm(store: any, categories: any[], product: any | null): string
             // Replace loading state with uploaded item
             div.className = 'flex items-center gap-3 p-2.5 bg-gray-50 dark:bg-slate-800 border border-std rounded-xl';
             div.innerHTML = \`
-              <img src="${res.data.url}" class="w-12 h-12 object-cover rounded-lg flex-shrink-0" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}';">
+              <img src="\${res.data.url}" class="w-12 h-12 object-cover rounded-lg flex-shrink-0" onerror="handleImgError(this)">
               <input type="text" value="\${res.data.url}" dir="ltr" class="flex-1 px-3 py-1.5 border border-std rounded-lg text-sm bg-page text-main image-input">
               <button type="button" onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-600 p-1 flex-shrink-0"><i class="fas fa-times"></i></button>
             \`;
