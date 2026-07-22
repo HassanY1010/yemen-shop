@@ -546,9 +546,9 @@ function storeLayout(
             const key = item.cartKey || item.id;
             return \`
             <div class="flex items-center gap-3 bg-page rounded-xl p-3">
-              <img src="\${item.image || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Crect width='400' height='400' fill='%23f1f5f9'/%3E%3Cpath d='M160 160c0-22.1 17.9-40 40-40s40 17.9 40 40-17.9 40-40 40-40-17.9-40-40zm120 120H120l50-65 35 45 25-30 50 50z' fill='%2394a3b8'/%3E%3Ctext x='50%25' y='82%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='16' font-weight='bold' fill='%2364748b'%3Eلا توجد صورة%3C/text%3E%3C/svg%3E"}" alt="\${item.name}" 
+              <img src="\${item.image || '${DEFAULT_PRODUCT_IMAGE}'}" alt="\${item.name}" 
                    class="w-14 h-14 object-cover rounded-lg flex-shrink-0"
-                   onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' viewBox=\\'0 0 400 400\\'%3E%3Crect width=\\'400\\' height=\\'400\\' fill=\\'%23f1f5f9\\'/ %3E%3Cpath d=\\'M160 160c0-22.1 17.9-40 40-40s40 17.9 40 40-17.9 40-40 40-40-17.9-40-40zm120 120H120l50-65 35 45 25-30 50 50z\\' fill=\\'%2394a3b8\\'/ %3E%3Ctext x=\\'50%25\\' y=\\'82%25\\' dominant-baseline=\\'middle\\' text-anchor=\\'middle\\' font-family=\\'sans-serif\\' font-size=\\'16\\' font-weight=\\'bold\\' fill=\\'%2364748b\\'%3Eلا توجد صورة%3C/text%3E%3C/svg%3E';">
+                   onerror="handleImgError(this)">
               <div class="flex-1 min-w-0">
                 <p class="font-medium text-main text-sm line-clamp-1">\${item.name}</p>
                 \${item.variant ? \`<p class="text-[10px] text-mute font-semibold mb-0.5">\${item.variant}</p>\` : ''}
@@ -934,7 +934,7 @@ store.get('/:slug', async (c) => {
             ${hasDiscount ? `<span class="text-mute line-through text-xs mr-1">${formatCurrency(product.price, storeData.currency)}</span>` : ''}
           </div>
           ${product.stock > 0 ? `
-          <button onclick="event.stopPropagation(); addToCart(${product.id}, '${product.name.replace(/'/g, "\\'")}', ${price}, '${product.image || ''}')"
+          <button onclick="event.stopPropagation(); addToCart(${product.id}, '${product.name.replace(/'/g, "\\'")}', ${price}, '${getImageUrl(product.image || product.primary_image, DEFAULT_PRODUCT_IMAGE)}')"
             class="w-9 h-9 rounded-xl text-white flex items-center justify-center hover:opacity-80 transition-all text-sm shadow"
             style="background: ${primary};">
             <i class="fas fa-plus"></i>
@@ -1191,7 +1191,7 @@ store.get('/:slug/products', async (c) => {
                     ${hasDiscount ? `<span class="text-mute line-through text-xs mr-1">${formatCurrency(p.price, storeData.currency)}</span>` : ''}
                   </div>
                   ${p.stock > 0 ? `
-                  <button onclick="event.stopPropagation(); addToCart(${p.id}, '${p.name.replace(/'/g, "\\'")}', ${price}, '${p.image || ''}')"
+                  <button onclick="event.stopPropagation(); addToCart(${p.id}, '${p.name.replace(/'/g, "\\'")}', ${price}, '${getImageUrl(p.image || p.primary_image, DEFAULT_PRODUCT_IMAGE)}')"
                     class="w-9 h-9 rounded-xl text-white flex items-center justify-center hover:opacity-80 transition-all text-sm shadow"
                     style="background: ${primary};">
                     <i class="fas fa-plus"></i>
@@ -1722,7 +1722,7 @@ store.get('/:slug/products/:id', async (c) => {
       });
 
       for (let i = 0; i < qty; i++) {
-        addToCart(${product.id}, ${JSON.stringify(product.name)}, finalPrice, ${JSON.stringify(mainImage)}, variantStr);
+        addToCart(${product.id}, ${JSON.stringify(product.name)}, finalPrice, ${JSON.stringify(getImageUrl(mainImage, DEFAULT_PRODUCT_IMAGE))}, variantStr);
       }
     }
     window.addToCartMultiple = addToCartMultiple;
