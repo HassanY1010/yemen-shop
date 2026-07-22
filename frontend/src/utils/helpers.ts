@@ -116,16 +116,4 @@ export function sanitizeInput(input: string): string {
   return input.replace(/<[^>]*>/g, '').trim();
 }
 
-export const LARAVEL_API_URL = 'http://127.0.0.1:8000/api';
 
-export async function fetchLaravel(path: string, token: string | null = null, options: RequestInit = {}) {
-  const url = `${LARAVEL_API_URL}/${path.replace(/^\//, '')}`;
-  const headers = new Headers(options.headers || {});
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
-  }
-  if (!headers.has('Accept')) {
-    headers.set('Accept', 'application/json');
-  }
-  return fetch(url, { ...options, headers });
-}

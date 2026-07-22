@@ -12,16 +12,7 @@ import { tenantMiddleware } from './middleware/tenant'
 import manifestContent from '../public/manifest.json?raw'
 // @ts-ignore
 import swContent from '../public/sw.js?raw'
-import { hashPassword, generateToken, verifyPassword, generateSlug, generateOrderNumber, fetchLaravel, LARAVEL_API_URL } from './utils/helpers'
-import { NotificationService } from './services/notification'
-import { PaymentService } from './services/payment'
-import { getPgPool, PgD1Database } from './utils/db'
-
-import dashboardRoutes from './routes/dashboard'
-import adminRoutes from './routes/admin'
-import apiRoutes from './routes/api'
-import storefrontRoutes from './routes/storefront'
-import landingRoutes from './routes/landing'
+import { hashPassword, generateToken, verifyPassword, generateSlug, generateOrderNumber } from './utils/helpers'
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
@@ -29,15 +20,13 @@ app.use('*', async (c, next) => {
   const pgPool = getPgPool();
   if (pgPool) {
     c.env.DB = new PgD1Database(pgPool) as any;
-  } else if (!c.env.DB || typeof (c.env.DB as any).prepare !== 'function') {
-    c.env.DB = new LaravelD1Database() as any;
   }
   return next();
 });
 
 export const memoryUploads = new Map<string, ArrayBuffer>();
 
-// ─── Image & Asset Routes (Top Priority) ─────────────────────
+// ─── Image & Asset Routes ─────────────────────────────────────
 app.get('/uploads/:filename', async (c) => {
   const filename = c.req.param('filename');
   let fileData: ArrayBuffer | null = memoryUploads.get(filename) || null;
@@ -49,109 +38,21 @@ app.get('/uploads/:filename', async (c) => {
     }
   }
   if (!fileData) {
-    try {
-      const laravelBase = LARAVEL_API_URL.replace(/\/api\/?$/, '');
-      const res = await fetch(`${laravelBase}/storage/uploads/${filename}`);
-      if (res.ok) {
-        const contentType = res.headers.get('Content-Type') || 'image/jpeg';
-        const buffer = await res.arrayBuffer();
-        return new Response(buffer, {
-          status: 200,
-          headers: { 'Content-Type': contentType }
-        });
-      }
-    } catch (e) {}
     return c.text('Not Found', 404);
   }
-  
+
   const ext = filename.split('.').pop()?.toLowerCase();
   let contentType = 'image/jpeg';
   if (ext === 'png') contentType = 'image/png';
   else if (ext === 'webp') contentType = 'image/webp';
   else if (ext === 'gif') contentType = 'image/gif';
   else if (ext === 'svg') contentType = 'image/svg+xml';
-  
+
   return new Response(fileData, {
     status: 200,
     headers: { 'Content-Type': contentType }
   });
 })
-
-// Proxy /storage/* requests to Laravel backend safely
-app.get('/storage/*', async (c) => {
-  try {
-    const laravelBase = LARAVEL_API_URL.replace(/\/api\/?$/, '');
-    const targetUrl = `${laravelBase}${c.req.path}`;
-    const res = await fetch(targetUrl);
-    if (!res.ok) return c.text('Not Found', 404);
-    const contentType = res.headers.get('Content-Type') || 'image/jpeg';
-    const buffer = await res.arrayBuffer();
-    return new Response(buffer, {
-      status: 200,
-      headers: { 'Content-Type': contentType }
-    });
-  } catch (e: any) {
-    return c.text('Not Found', 404);
-  }
-})
-
-// ─── Laravel D1 Database Gateway Mock ──────────────────────────
-class LaravelD1Database {
-  prepare(sql: string) {
-    const createStatement = (params: any[] = []) => {
-      return {
-        bind(...nextParams: any[]) {
-          return createStatement([...params, ...nextParams]);
-        },
-        async first() {
-          const res = await fetchLaravel('internal/query', null, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sql, params, first: true })
-          });
-          if (!res.ok) {
-            const err = await res.json() as any;
-            throw new Error(err.error || 'Database error');
-          }
-          const data = await res.json();
-          if (!data || (typeof data === 'object' && Object.keys(data).length === 0)) {
-            return null;
-          }
-          return data;
-        },
-        async all() {
-          const res = await fetchLaravel('internal/query', null, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sql, params, first: false })
-          });
-          if (!res.ok) {
-            const err = await res.json() as any;
-            throw new Error(err.error || 'Database error');
-          }
-          return res.json();
-        },
-        async run() {
-          const res = await fetchLaravel('internal/query', null, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sql, params, run: true })
-          });
-          if (!res.ok) {
-            const err = await res.json() as any;
-            throw new Error(err.error || 'Database error');
-          }
-          const data = await res.json() as any;
-          if (!data.meta) {
-            data.meta = { last_row_id: data.last_row_id || 0, changes: data.affected || 1 };
-          }
-          return data;
-        }
-      };
-    };
-    return createStatement();
-  }
-}
 
 
 

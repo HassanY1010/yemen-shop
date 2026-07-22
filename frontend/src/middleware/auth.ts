@@ -3,7 +3,6 @@
 // ============================================
 import { Context, Next } from 'hono';
 import { Bindings, Variables, User, Store } from '../types/index';
-import { fetchLaravel } from '../utils/helpers';
 
 type AppContext = Context<{ Bindings: Bindings; Variables: Variables }>;
 
@@ -67,29 +66,6 @@ export async function authMiddleware(c: AppContext, next: Next) {
         }
       } catch (e) {}
     }
-
-    // 2. Fallback to Laravel backend auth/me
-    try {
-      const res = await fetchLaravel('auth/me', token);
-      if (res && res.ok) {
-        const data = await res.json() as any;
-        if (data.user) {
-          const user: User = {
-            id: data.user.id,
-            name: data.user.name,
-            email: data.user.email,
-            role: data.user.role,
-            avatar: data.user.avatar,
-            is_active: data.user.is_active,
-            created_at: data.user.created_at,
-          };
-
-          c.set('user', user);
-          if (data.store) c.set('store', data.store);
-          return await next();
-        }
-      }
-    } catch (e) {}
   } catch (e) {}
 
   const path = new URL(c.req.url).pathname;
