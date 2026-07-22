@@ -174,15 +174,9 @@ async function syncPgTables(pool: any) {
       ALTER TABLE products ADD COLUMN IF NOT EXISTS is_featured INT DEFAULT 0;
       ALTER TABLE products ADD COLUMN IF NOT EXISTS featured INT DEFAULT 0;
 
-      UPDATE product_images SET url = 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600' WHERE (url LIKE '%placeholder%' OR url IS NULL OR url = '' OR url LIKE '%no-image%');
+      UPDATE product_images SET url = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cdefs%3E%3ClinearGradient id='bg1' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%231e1b4b'/%3E%3Cstop offset='100%25' stop-color='%23312e81'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='512' height='512' fill='url(%23bg1)'/%3E%3Crect x='166' y='180' width='180' height='160' rx='40' fill='%23ffffff' shadow='0 10px 30px rgba(0,0,0,0.3)'/%3E%3Cpath d='M190 180v-40c0-36.5 29.5-66 66-66s66 29.5 66 66v40' fill='none' stroke='%23e2e8f0' stroke-width='16' stroke-linecap='round'/%3E%3Ccircle cx='216' cy='250' r='12' fill='%236366f1'/%3E%3Ccircle cx='296' cy='250' r='12' fill='%236366f1'/%3E%3Ctext x='51%25' y='82%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='22' font-weight='bold' fill='%23a5b4fc'%3Eسماعة لاسلكية عالية الجودة%3C/text%3E%3C/svg%3E";
 
-      UPDATE products SET image = 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600' WHERE (LOWER(name) LIKE '%سمّاعة%' OR LOWER(name) LIKE '%سماعة%' OR LOWER(name) LIKE '%headphone%' OR LOWER(name) LIKE '%airpods%');
-      UPDATE products SET image = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600' WHERE (LOWER(name) LIKE '%ساعة%' OR LOWER(name) LIKE '%watch%');
-      UPDATE products SET image = 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600' WHERE (LOWER(name) LIKE '%حذاء%' OR LOWER(name) LIKE '%shoe%');
-      UPDATE products SET image = 'https://images.unsplash.com/photo-1585386959984-a4155224a1ad?w=600' WHERE (LOWER(name) LIKE '%عطر%' OR LOWER(name) LIKE '%perfume%');
-      
-      UPDATE products SET image = (SELECT url FROM product_images WHERE product_id = products.id ORDER BY is_primary DESC, id ASC LIMIT 1) WHERE EXISTS (SELECT 1 FROM product_images WHERE product_id = products.id);
-      UPDATE products SET image = 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600' WHERE (image IS NULL OR image = '' OR image LIKE '%placeholder%');
+      UPDATE products SET image = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cdefs%3E%3ClinearGradient id='bg1' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%231e1b4b'/%3E%3Cstop offset='100%25' stop-color='%23312e81'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='512' height='512' fill='url(%23bg1)'/%3E%3Crect x='166' y='180' width='180' height='160' rx='40' fill='%23ffffff' shadow='0 10px 30px rgba(0,0,0,0.3)'/%3E%3Cpath d='M190 180v-40c0-36.5 29.5-66 66-66s66 29.5 66 66v40' fill='none' stroke='%23e2e8f0' stroke-width='16' stroke-linecap='round'/%3E%3Ccircle cx='216' cy='250' r='12' fill='%236366f1'/%3E%3Ccircle cx='296' cy='250' r='12' fill='%236366f1'/%3E%3Ctext x='51%25' y='82%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='22' font-weight='bold' fill='%23a5b4fc'%3Eسماعة لاسلكية عالية الجودة%3C/text%3E%3C/svg%3E";
 
       DELETE FROM flash_sales WHERE title LIKE '%test%' OR title LIKE '%Test%';
 
