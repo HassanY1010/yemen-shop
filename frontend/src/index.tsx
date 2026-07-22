@@ -1139,12 +1139,12 @@ app.get('/api/init-db', async (c) => {
       "INSERT OR IGNORE INTO plans (id, name, slug, price, max_products, max_images, max_staff, max_orders, features) VALUES (1,'مجاني','free',0,10,3,1,50,'[]'), (2,'أساسي','basic',49,50,5,2,500,'[]'), (3,'احترافي','pro',99,200,10,5,2000,'[]'), (4,'أعمال','business',199,-1,-1,-1,-1,'[]')"
     ).run()
 
-    const adminExists = await c.env.DB.prepare("SELECT id FROM users WHERE email = 'admin@platform.com'").first()
+    const adminExists = await c.env.DB.prepare("SELECT id FROM users WHERE email = 'admin@admin.com'").first()
     if (!adminExists) {
-      const adminHash = await hashPassword('password')
+      const adminHash = await hashPassword('hhaall112233$')
       const merchantHash = await hashPassword('password')
 
-      await c.env.DB.prepare("INSERT INTO users (id, name, email, password, role) VALUES (1, 'Platform Admin', 'admin@platform.com', ?, 'admin')").bind(adminHash).run()
+      await c.env.DB.prepare("INSERT INTO users (id, name, email, password, role) VALUES (1, 'مدير النظام', 'admin@admin.com', ?, 'admin')").bind(adminHash).run()
       await c.env.DB.prepare("INSERT INTO users (id, name, email, password, role) VALUES (2, 'أحمد محمد', 'merchant@demo.com', ?, 'merchant')").bind(merchantHash).run()
       await c.env.DB.prepare("INSERT OR IGNORE INTO stores (id, user_id, plan_id, name, slug, description, primary_color, secondary_color, status) VALUES (1, 2, 3, 'متجر التقنية', 'tech-store', 'أفضل المنتجات التقنية', '#4F46E5', '#818CF8', 'active')").run()
       await c.env.DB.prepare("INSERT OR IGNORE INTO categories (id, store_id, name, slug) VALUES (1, 1, 'الجوالات', 'phones'), (2, 1, 'أجهزة الكمبيوتر', 'computers'), (3, 1, 'الإكسسوارات', 'accessories')").run()
