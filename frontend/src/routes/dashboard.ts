@@ -1888,14 +1888,14 @@ dashboard.get('/analytics', async (c) => {
     `).bind(store.id).all(),
 
     c.env.DB.prepare(`
-      SELECT p.name, p.price, p.total_sold,
+      SELECT MAX(p.name) as name, MAX(p.price) as price, COALESCE(MAX(p.total_sold), 0) as total_sold,
              COALESCE(SUM(oi.total), 0) as revenue,
-             pi.url as image
+             MAX(pi.url) as image
       FROM products p
       LEFT JOIN order_items oi ON oi.product_id = p.id
-      LEFT JOIN product_images pi ON pi.product_id = p.id AND pi.is_primary = 1
+      LEFT JOIN product_images pi ON pi.product_id = p.id
       WHERE p.store_id = ? AND p.status = 'active'
-      GROUP BY p.id ORDER BY p.total_sold DESC LIMIT 10
+      GROUP BY p.id ORDER BY COALESCE(MAX(p.total_sold), 0) DESC LIMIT 10
     `).bind(store.id).all(),
 
     c.env.DB.prepare(`
