@@ -275,10 +275,7 @@ dashboard.get('/products', async (c) => {
   const offset = (page - 1) * perPage;
 
   let query = `SELECT p.*, 
-      COALESCE(
-        (SELECT url FROM product_images WHERE product_id = p.id AND (is_primary = true OR is_primary = 1) LIMIT 1),
-        (SELECT url FROM product_images WHERE product_id = p.id LIMIT 1)
-      ) as image,
+      (SELECT url FROM product_images WHERE product_id = p.id LIMIT 1) as image,
       c.name as category_name
     FROM products p
     LEFT JOIN categories c ON c.id = p.category_id
@@ -289,12 +286,12 @@ dashboard.get('/products', async (c) => {
   if (category) { query += ' AND p.category_id = ?'; params.push(category); }
   if (statusFilter) { query += ' AND p.status = ?'; params.push(statusFilter); }
 
-  query += ` ORDER BY p.featured DESC, p.created_at DESC LIMIT ${perPage} OFFSET ${offset}`;
+  query += ` ORDER BY p.id DESC LIMIT ${perPage} OFFSET ${offset}`;
 
   const [products, totalCount, categories] = await Promise.all([
     c.env.DB.prepare(query).bind(...params).all(),
     c.env.DB.prepare(`SELECT COUNT(*) as count FROM products WHERE store_id = ? AND status != 'deleted'`).bind(store.id).first() as Promise<any>,
-    c.env.DB.prepare('SELECT * FROM categories WHERE store_id = ? AND is_active = 1').bind(store.id).all(),
+    c.env.DB.prepare('SELECT * FROM categories WHERE store_id = ?').bind(store.id).all(),
   ]);
 
   const totalPages = Math.ceil((totalCount?.count || 0) / perPage);

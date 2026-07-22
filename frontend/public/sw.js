@@ -92,6 +92,10 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Static assets — cache first
+  if (!event.request.url.startsWith('http://') && !event.request.url.startsWith('https://')) {
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;
