@@ -598,6 +598,14 @@ function storeLayout(
       window.location.href = '/store/' + STORE_SLUG + '/checkout';
     }
 
+    window.addToCart = addToCart;
+    window.removeFromCart = removeFromCart;
+    window.updateQty = updateQty;
+    window.openCart = openCart;
+    window.closeCart = closeCart;
+    window.proceedToCheckout = proceedToCheckout;
+    window.updateCartUI = updateCartUI;
+
     function openCheckout() {
       appliedCoupon = null;
       const couponMsg = document.getElementById('couponMsg');
@@ -1722,7 +1730,7 @@ store.get('/:slug/products/:id', async (c) => {
       });
 
       for (let i = 0; i < qty; i++) {
-        addToCart(${product.id}, ${JSON.stringify(product.name)}, finalPrice, ${JSON.stringify(mainImage || '')}, variantStr);
+        (window.addToCart || addToCart)(${product.id}, ${JSON.stringify(product.name)}, finalPrice, ${JSON.stringify(mainImage || '')}, variantStr);
       }
     }
     window.addToCartMultiple = addToCartMultiple;
