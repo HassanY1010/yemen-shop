@@ -1089,6 +1089,7 @@ store.get('/:slug/products', async (c) => {
   const activeCategory = categoryId ? (categories.results as any[]).find(c => c.id == categoryId) : null;
 
   // Fetch active flash sales
+  const nowIso = new Date().toISOString();
   const activeFlashSales = await c.env.DB.prepare(`
     SELECT * FROM flash_sales
     WHERE store_id = ? AND is_active = 1
@@ -1268,6 +1269,7 @@ store.get('/:slug/products/:id', async (c) => {
   const primary = storeData.primary_color || '#4F46E5';
   
   // Fetch active flash sale
+  const nowIso = new Date().toISOString();
   const flashSale = await c.env.DB.prepare(`
     SELECT * FROM flash_sales
     WHERE store_id = ? AND product_id = ? AND is_active = 1
