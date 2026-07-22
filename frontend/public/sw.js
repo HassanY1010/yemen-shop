@@ -44,7 +44,15 @@ self.addEventListener('activate', (event) => {
 
 // ── Fetch: smart caching strategy ─────────────────────────────
 self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
+  let url;
+  try {
+    url = new URL(event.request.url);
+  } catch (e) {
+    return;
+  }
+
+  // Guard against non-HTTP/HTTPS schemes (e.g., chrome-extension://, moz-extension://)
+  if (!url.protocol.startsWith('http')) return;
 
   // Skip non-GET, cross-origin auth, and POST requests
   if (event.request.method !== 'GET') return;
@@ -88,11 +96,6 @@ self.addEventListener('fetch', (event) => {
           )
         )
     );
-    return;
-  }
-
-  // Static assets — cache first
-  if (!event.request.url.startsWith('http://') && !event.request.url.startsWith('https://')) {
     return;
   }
 

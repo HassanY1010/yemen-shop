@@ -29,7 +29,7 @@ export async function authMiddleware(c: AppContext, next: Next) {
           `SELECT s.user_id, s.store_id, u.name, u.email, u.role, u.avatar, u.is_active
            FROM sessions s
            JOIN users u ON u.id = s.user_id
-           WHERE s.token = ?`
+           WHERE s.token = ? AND (s.expires_at IS NULL OR s.expires_at > CURRENT_TIMESTAMP)`
         ).bind(token).first() as any;
 
         if (session) {
