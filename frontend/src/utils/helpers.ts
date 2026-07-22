@@ -164,12 +164,36 @@ export function getImageUrl(url: string | null | undefined, fallback: string = D
   if (relativePath.startsWith('/storage/')) {
     relativePath = relativePath.replace('/storage/', '/');
   }
-  if (!relativePath.startsWith('/')) {
-    relativePath = '/' + relativePath;
+  if (!relativePath.startsWith('/uploads/')) {
+    relativePath = `/uploads/${relativePath.replace(/^\//, '')}`;
   }
 
   return relativePath;
 }
 
+export async function fetchLaravel(apiPath: string, token?: string | null, options: any = {}) {
+  const baseUrl = getEnvVar(null, 'LARAVEL_API_URL', 'http://localhost:8000/api');
+  const headers: Record<string, string> = { ...(options.headers || {}) };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  if (!headers['Accept']) {
+    headers['Accept'] = 'application/json';
+  }
 
-
+  const cleanPath = apiPath.replace(/^\//, '');
+  try {
+    const response = await fetch(`${baseUrl}/${cleanPath}`, {
+      method: options.method || 'GET',
+      headers,
+      body: options.body
+    });
+    return response;
+  } catch (err: any) {
+    console.error(`[fetchLaravel Error] Path: ${cleanPath}`, err);
+    return new Response(JSON.stringify({ success: false, message: 'Backend unreachable', error: err?.message }), {
+      status: 503,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+}

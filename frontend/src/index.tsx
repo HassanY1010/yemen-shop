@@ -12,7 +12,7 @@ import { tenantMiddleware } from './middleware/tenant'
 import manifestContent from '../public/manifest.json?raw'
 // @ts-ignore
 import swContent from '../public/sw.js?raw'
-import { hashPassword, generateToken, verifyPassword, generateSlug, generateOrderNumber, getEnvVar } from './utils/helpers'
+import { hashPassword, generateToken, verifyPassword, generateSlug, generateOrderNumber, getEnvVar, fetchLaravel } from './utils/helpers'
 import { NotificationService } from './services/notification'
 import { PaymentService } from './services/payment'
 import { getPgPool, PgD1Database } from './utils/db'
