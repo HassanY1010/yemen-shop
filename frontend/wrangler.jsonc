@@ -1,0 +1,22 @@
+{
+	"$schema": "nodejs_modules/wrangler/config-schema.json",
+	"name": "saas-store-platform",
+	"compatibility_date": "2024-09-23",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"pages_build_output_dir": "./dist",
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "saas-platform-db",
+			"database_id": "91e32ea4-56dc-4d13-a480-6e15e92a82f6"
+		}
+	],
+	"kv_namespaces": [
+		{
+			"binding": "SESSIONS",
+			"id": "9cf7996ad83a4c1783b8c75f495bd522"
+		}
+	]
+}

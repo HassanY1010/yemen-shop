@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>غير متصل - منصة سوق</title>
+  <style>
+    * { font-family: 'Tajawal', sans-serif; box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      color: white;
+    }
+    .card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 1.5rem;
+      padding: 3rem 2rem;
+      text-align: center;
+      max-width: 400px;
+      width: 100%;
+    }
+    .icon { font-size: 4rem; margin-bottom: 1.5rem; }
+    h1 { font-size: 1.75rem; font-weight: 900; margin-bottom: 0.75rem; }
+    p { color: #94a3b8; line-height: 1.7; margin-bottom: 2rem; }
+    button {
+      background: #4F46E5;
+      color: white;
+      border: none;
+      padding: 0.875rem 2rem;
+      border-radius: 0.875rem;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      width: 100%;
+    }
+    button:hover { background: #4338CA; transform: translateY(-2px); }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="card">
+    <div class="icon">📡</div>
+    <h1>لا يوجد اتصال</h1>
+    <p>يبدو أنك غير متصل بالإنترنت. تحقق من اتصالك وحاول مجدداً.</p>
+    <button onclick="window.location.reload()">🔄 إعادة المحاولة</button>
+  </div>
+</body>
+</html>

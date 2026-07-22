@@ -1,0 +1,26 @@
+{
+  "name": "saas-store-platform",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "start": "node server.js",
+    "preview": "wrangler pages dev dist",
+    "dev:sandbox": "wrangler pages dev dist --d1=saas-platform-db --local --ip 0.0.0.0 --port 3000",
+    "deploy": "npm run build && wrangler pages deploy dist",
+    "db:migrate:local": "wrangler d1 migrations apply saas-platform-db --local",
+    "db:seed": "wrangler d1 execute saas-platform-db --local --file=./seed.sql",
+    "db:reset": "node scripts/db_reset.cjs"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.0.11",
+    "hono": "^4.12.26"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "4.20250705.0",
+    "@hono/vite-cloudflare-pages": "^0.4.2",
+    "typescript": "^5.0.0",
+    "vite": "^6.3.5",
+    "wrangler": "^4.4.0"
+  }
+}

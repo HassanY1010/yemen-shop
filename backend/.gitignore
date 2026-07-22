@@ -1,0 +1,54 @@
+# Environment files
+.env
+.env.backup
+.env.production
+!.env.example
+
+# Dependencies
+/vendor
+/node_modules
+
+# Build & Compiled Assets
+/public/build
+/public/hot
+/public/storage
+/public/fonts-manifest.dev.json
+
+# Storage & Caches
+/storage/*.key
+/storage/framework/cache/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+/storage/framework/testing/*
+/storage/logs/*
+/storage/pail
+
+# Databases
+/database/*.sqlite
+/database/*.sqlite-journal
+
+# IDE & Editor files
+.DS_Store
+Thumbs.db
+/.vscode
+/.idea
+/.zed
+/.nova
+/.codex
+/.cursor/
+.phpactor.json
+.phpunit.result.cache
+/.phpunit.cache
+
+# Credentials & Keys
+/auth.json
+Homestead.json
+Homestead.yaml
+_ide_helper.php
+
+# One-off / Temporary maintenance scripts
+check_*.php
+update_*.php
+reset_*.php
+add_*.php
+create_*.php

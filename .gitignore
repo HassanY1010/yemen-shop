@@ -1,0 +1,18 @@
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Editor Files
+.vscode/
+.idea/
+*.swp
+
+# Node / Build artifacts
+node_modules/
+dist/
+vendor/
+
+# Environment Files
+.env
+.env.local
+.env.production
