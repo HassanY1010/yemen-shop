@@ -2470,6 +2470,21 @@ dashboard.get('/settings', async (c) => {
           </div>
           <p class="text-xs text-mute mt-1">أدخل رابط شعار خارجي أو قم برفع ملف مباشرة من جهازك</p>
         </div>
+
+        <div>
+          <label class="block text-sm font-medium text-sub mb-2">أيقونة المتجر (Favicon .ico / .png / .svg)</label>
+          <div class="flex gap-2.5">
+            <input type="text" id="sFavicon" value="${store.favicon || ''}" placeholder="https://example.com/favicon.ico" dir="ltr"
+              class="flex-1 px-4 py-2.5 border border-std rounded-xl text-sm bg-page text-main focus:ring-2 focus:ring-primary-300 outline-none">
+            <div class="relative">
+              <input type="file" id="faviconUploadInput" accept="image/*,.ico,.svg" class="absolute inset-0 opacity-0 cursor-pointer w-28" onchange="uploadStoreFavicon(this)">
+              <button type="button" class="w-28 h-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-sm transition-colors flex items-center justify-center gap-1.5 shadow-sm">
+                <i class="fas fa-upload"></i> رفع الأيقونة
+              </button>
+            </div>
+          </div>
+          <p class="text-xs text-mute mt-1">تظهر هذه الأيقونة في تبويب المتصفح بجانب اسم متجرك</p>
+        </div>
         <button type="submit" class="bg-primary-600 text-white px-6 py-2.5 rounded-xl font-semibold hover:bg-primary-700 transition-colors flex items-center gap-2">
           <i class="fas fa-save"></i> حفظ المظهر
         </button>
@@ -2717,8 +2732,9 @@ dashboard.get('/settings', async (c) => {
           primary_color: document.getElementById('primaryColor').value,
           secondary_color: document.getElementById('secondaryColor').value,
           logo: document.getElementById('sLogo').value,
+          favicon: document.getElementById('sFavicon')?.value || null,
         });
-        showToast('تم حفظ الألوان', 'success');
+        showToast('تم حفظ إعدادات المظهر والأيقونة بنجاح ⚡', 'success');
       } catch { showToast('خطأ في الحفظ', 'error'); }
     });
 
@@ -2799,7 +2815,36 @@ dashboard.get('/settings', async (c) => {
           showToast('خطأ أثناء الرفع', 'error');
         }
       } catch (err) {
-        showToast(err.response?.data?.message || 'خطأ أثناء الرفع', 'error');
+        showToast('فشل رفع الشعار', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = oldHTML;
+      }
+    }
+
+    async function uploadStoreFavicon(input) {
+      if (!input.files || input.files.length === 0) return;
+      const file = input.files[0];
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const btn = input.nextElementSibling;
+      const oldHTML = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> رفع...';
+      
+      try {
+        const res = await axios.post('/api/dashboard/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        if (res.data && res.data.url) {
+          document.getElementById('sFavicon').value = res.data.url;
+          showToast('تم رفع أيقونة المتجر بنجاح ⚡', 'success');
+        } else {
+          showToast('خطأ أثناء الرفع', 'error');
+        }
+      } catch (err) {
+        showToast('فشل رفع الأيقونة', 'error');
       } finally {
         btn.disabled = false;
         btn.innerHTML = oldHTML;

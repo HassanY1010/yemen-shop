@@ -468,7 +468,7 @@ const handleUpdateStore = async (c: any) => {
   const data = await c.req.json() as any;
   
   const allowedFields = ['name', 'description', 'phone', 'email', 'address', 'city', 'country', 
-    'currency', 'primary_color', 'secondary_color', 'logo', 'banner', 'facebook', 'twitter', 'instagram', 'whatsapp', 'whatsapp_group', 'custom_domain',
+    'currency', 'primary_color', 'secondary_color', 'logo', 'favicon', 'banner', 'facebook', 'twitter', 'instagram', 'whatsapp', 'whatsapp_group', 'custom_domain',
     'google_analytics_id', 'meta_pixel_id', 'shipping_rates', 'bank_accounts'];
   
   if (data.custom_domain) {

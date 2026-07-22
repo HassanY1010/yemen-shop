@@ -62,7 +62,8 @@ async function syncPgTables(pool: any) {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
-      ALTER TABLE stores ADD COLUMN IF NOT EXISTS domain VARCHAR(255);
+      ALTER TABLE stores ADD COLUMN IF NOT EXISTS favicon VARCHAR(255);
+      ALTER TABLE stores ADD COLUMN IF NOT EXISTS logo VARCHAR(255);
       ALTER TABLE stores ADD COLUMN IF NOT EXISTS custom_domain VARCHAR(255);
       ALTER TABLE stores ADD COLUMN IF NOT EXISTS is_active INT DEFAULT 1;
       ALTER TABLE stores ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(50) DEFAULT 'active';

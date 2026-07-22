@@ -194,7 +194,10 @@ function storeLayout(
     `;
   }
 
-  const combinedHead = trackingCodes + headExtra;
+  const faviconTag = storeData.favicon 
+    ? `<link rel="icon" href="${storeData.favicon}"><link rel="shortcut icon" href="${storeData.favicon}"><link rel="apple-touch-icon" href="${storeData.favicon}">`
+    : '';
+  const combinedHead = trackingCodes + faviconTag + headExtra;
 
   return baseLayout(storeName, `
   <!-- Store Header -->
