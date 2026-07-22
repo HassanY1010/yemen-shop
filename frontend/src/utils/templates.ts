@@ -428,14 +428,14 @@ export function dashboardLayout(
   `).join('');
 
   return baseLayout(title, `
-  <div class="flex h-screen overflow-hidden">
+  <div class="flex h-screen overflow-hidden relative">
 
-    <!-- ── Sidebar ────────────────────────── -->
-    <aside id="sidebar" class="w-64 bg-sidebar shadow-xl flex flex-col flex-shrink-0 border-l border-std transition-transform duration-300 z-20">
+    <!-- ── Sidebar (Fixed Drawer on Mobile, Static Sidebar on Desktop) ── -->
+    <aside id="sidebar" class="fixed inset-y-0 right-0 z-50 w-64 bg-sidebar shadow-2xl flex flex-col border-l border-std transition-transform duration-300 ease-in-out translate-x-full lg:static lg:translate-x-0 lg:z-20 lg:flex-shrink-0 lg:shadow-xl">
 
       <!-- Logo -->
-      <div class="p-5 border-b border-std" style="background: linear-gradient(135deg, ${sidebarColor}20, ${sidebarColor}08);">
-        <div class="flex items-center gap-3">
+      <div class="p-5 border-b border-std flex items-center justify-between" style="background: linear-gradient(135deg, ${sidebarColor}20, ${sidebarColor}08);">
+        <div class="flex items-center gap-3 min-w-0">
           <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white text-lg font-bold shadow-lg flex-shrink-0"
                style="background: linear-gradient(135deg, ${sidebarColor}, ${sidebarColor}cc);">
             ${isAdmin ? '<i class="fas fa-shield-alt text-sm"></i>' : `<span>${(store?.name?.[0] || 'م')}</span>`}
@@ -445,6 +445,10 @@ export function dashboardLayout(
             <p class="text-xs text-mute">${isAdmin ? 'لوحة الإدارة' : 'لوحة التحكم'}</p>
           </div>
         </div>
+        <!-- Close button on mobile -->
+        <button onclick="toggleSidebar()" class="lg:hidden text-sub hover:text-main p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
+          <i class="fas fa-times text-base"></i>
+        </button>
       </div>
 
       <!-- Navigation -->
@@ -483,31 +487,31 @@ export function dashboardLayout(
     </aside>
 
     <!-- ── Main Content ─────────────────────── -->
-    <main class="flex-1 overflow-y-auto bg-page">
+    <main class="flex-1 w-full min-w-0 overflow-y-auto bg-page">
 
       <!-- Top Bar -->
-      <header class="bg-card border-b border-std px-6 py-3.5 flex items-center justify-between sticky top-0 z-10 shadow-sm">
-        <!-- Mobile Menu Toggle -->
-        <div class="flex items-center gap-4">
-          <button onclick="toggleSidebar()" class="lg:hidden text-sub hover:text-main p-1 rounded-lg transition-colors no-print">
+      <header class="bg-card border-b border-std px-3 sm:px-6 py-3 flex items-center justify-between sticky top-0 z-10 shadow-sm">
+        <!-- Mobile Menu Toggle & Title -->
+        <div class="flex items-center gap-2.5 sm:gap-4 min-w-0">
+          <button onclick="toggleSidebar()" class="lg:hidden text-sub hover:text-main p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors no-print" title="القائمة">
             <i class="fas fa-bars text-lg"></i>
           </button>
-          <div>
-            <h1 class="text-lg font-bold text-main leading-tight">${title}</h1>
-            ${store && !isAdmin ? `<p class="text-xs text-mute">متجر: <span class="text-primary-500 font-medium">${store.name}</span></p>` : ''}
+          <div class="min-w-0">
+            <h1 class="text-base sm:text-lg font-bold text-main leading-tight truncate">${title}</h1>
+            ${store && !isAdmin ? `<p class="text-xs text-mute truncate">متجر: <span class="text-primary-500 font-medium">${store.name}</span></p>` : ''}
           </div>
         </div>
 
         <!-- Right Actions -->
-        <div class="flex items-center gap-2 no-print">
+        <div class="flex items-center gap-1.5 sm:gap-2 no-print flex-shrink-0">
 
           <!-- View Store -->
           ${!isAdmin && store ? `
           <a href="/store/${store.slug}" target="_blank"
-             class="hidden sm:flex items-center gap-2 text-sm bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 hover:bg-primary-100 dark:hover:bg-primary-900/50 px-3 py-2 rounded-xl transition-colors font-medium"
+             class="flex items-center gap-1.5 text-xs sm:text-sm bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 hover:bg-primary-100 dark:hover:bg-primary-900/50 px-2.5 sm:px-3 py-2 rounded-xl transition-colors font-medium"
              data-tooltip="عرض المتجر للعملاء">
             <i class="fas fa-external-link-alt text-xs"></i>
-            <span>عرض المتجر</span>
+            <span class="hidden sm:inline">عرض المتجر</span>
           </a>` : ''}
 
           <!-- PWA Install Button (shown when installable) -->
@@ -526,7 +530,7 @@ export function dashboardLayout(
               <span id="notifBadge" class="notif-badge hidden">0</span>
             </button>
             <!-- Notifications Dropdown -->
-            <div id="notifDropdown" class="hidden absolute left-0 top-12 w-80 sm:w-96 bg-card border border-std rounded-2xl shadow-xl z-50 overflow-hidden">
+            <div id="notifDropdown" class="hidden absolute left-0 top-12 w-80 sm:w-96 max-w-[calc(100vw-2rem)] bg-card border border-std rounded-2xl shadow-xl z-50 overflow-hidden">
               <div class="p-3.5 border-b border-std flex items-center justify-between bg-gray-50/50 dark:bg-slate-800/50">
                 <div class="flex items-center gap-2">
                   <h3 class="font-bold text-main text-sm">الإشعارات</h3>
@@ -557,11 +561,11 @@ export function dashboardLayout(
 
           <!-- User Avatar -->
           <div class="relative group cursor-pointer">
-            <div class="flex items-center gap-2 bg-gray-100 dark:bg-slate-700 rounded-xl px-3 py-2 hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors">
-              <div class="w-6 h-6 rounded-full bg-primary-500 flex items-center justify-center text-white text-xs font-bold">
+            <div class="flex items-center gap-2 bg-gray-100 dark:bg-slate-700 rounded-xl px-2.5 sm:px-3 py-2 hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors">
+              <div class="w-6 h-6 rounded-full bg-primary-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                 ${user.name[0].toUpperCase()}
               </div>
-              <span class="text-sm font-medium text-main hidden sm:block">${user.name}</span>
+              <span class="text-sm font-medium text-main hidden sm:block truncate max-w-[100px]">${user.name}</span>
               <i class="fas fa-chevron-down text-xs text-mute hidden sm:block"></i>
             </div>
             <div class="absolute left-0 top-full mt-2 w-48 bg-card border border-std rounded-xl shadow-xl hidden group-hover:block z-50">
@@ -581,7 +585,7 @@ export function dashboardLayout(
       </header>
 
       <!-- Page Content -->
-      <div class="p-6 fade-in">
+      <div class="p-3 sm:p-6 fade-in">
         ${content}
       </div>
     </main>
@@ -589,7 +593,7 @@ export function dashboardLayout(
 
   <!-- Mobile sidebar overlay -->
   <div id="sidebarOverlay" onclick="toggleSidebar()" 
-       class="fixed inset-0 bg-black/50 z-10 hidden lg:hidden"></div>
+       class="fixed inset-0 bg-black/50 z-40 hidden lg:hidden backdrop-blur-sm transition-opacity duration-300"></div>
   `, {
     scripts: `
   <script>
@@ -597,8 +601,8 @@ export function dashboardLayout(
     function toggleSidebar() {
       const sb = document.getElementById('sidebar');
       const ov = document.getElementById('sidebarOverlay');
-      sb.classList.toggle('-translate-x-full');
-      ov.classList.toggle('hidden');
+      if (sb) sb.classList.toggle('translate-x-full');
+      if (ov) ov.classList.toggle('hidden');
     }
 
     // ── Dark/Light icons on load ──
