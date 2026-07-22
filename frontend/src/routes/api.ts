@@ -1065,7 +1065,7 @@ api.post('/store/:slug/orders', async (c) => {
         // Decrease stock if stock management is enabled
         if (product.stock !== undefined && product.stock > 0) {
           await c.env.DB.prepare(
-            "UPDATE products SET stock = MAX(0, stock - ?) WHERE id = ?"
+            "UPDATE products SET stock = GREATEST(0, stock - ?) WHERE id = ?"
           ).bind(qty, product.id).run();
         }
       }

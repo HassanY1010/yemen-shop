@@ -618,9 +618,14 @@ function storeLayout(
       const summary = document.getElementById('checkoutSummary');
       if (summary) {
         summary.innerHTML = cart.map(item => \`
-          <div class="flex justify-between text-sub">
-            <span>\${item.name} × \${item.qty}</span>
-            <span>\${(item.price * item.qty).toLocaleString('ar-SA')} \${CURRENCY}</span>
+          <div class="flex items-center gap-3 py-2 border-b border-std last:border-0">
+            <img src="\${item.image || ''}" class="w-10 h-10 object-cover rounded-lg flex-shrink-0" onerror="handleImgError(this)">
+            <div class="flex-1 min-w-0">
+              <p class="font-medium text-main text-xs truncate">\${item.name}</p>
+              \${item.variant ? \`<p class="text-[10px] text-mute">\${item.variant}</p>\` : ''}
+              <p class="text-xs text-sub font-semibold">\${item.qty} × \${item.price.toLocaleString('ar-SA')} \${CURRENCY}</p>
+            </div>
+            <span class="font-bold text-xs text-main">\${(item.price * item.qty).toLocaleString('ar-SA')} \${CURRENCY}</span>
           </div>
         \`).join('');
       }
@@ -2357,7 +2362,7 @@ store.get('/:slug/checkout', async (c) => {
           const itemTotal = itemPrice * itemQty;
           return '<div class="flex items-center gap-3 border-b border-std pb-3">' +
             '<div class="w-12 h-12 rounded-lg bg-page overflow-hidden flex-shrink-0">' +
-              '<img src="' + (item.image || 'https://via.placeholder.com/150') + '" class="w-full h-full object-cover">' +
+              '<img src="' + (item.image || '') + '" class="w-full h-full object-cover" onerror="handleImgError(this)">' +
             '</div>' +
             '<div class="flex-1 min-w-0">' +
               '<h4 class="font-bold text-main text-xs truncate">' + item.name + '</h4>' +
