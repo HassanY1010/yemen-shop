@@ -28,6 +28,7 @@ const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 app.use('*', async (c, next) => {
   const pgPool = getPgPool();
   if (pgPool) {
+    c.env = (c.env || {}) as any;
     c.env.DB = new PgD1Database(pgPool) as any;
   }
   return next();
@@ -371,8 +372,9 @@ app.get('/auth/logout', (c) => {
 // ─── API: Login ────────────────────────────────────────────────
 app.post('/api/auth/login', async (c) => {
   try {
+    const db: any = (c.env && c.env.DB) ? c.env.DB : new PgD1Database(getPgPool());
     const body = await c.req.json() as any
-    const user = await c.env.DB.prepare(
+    const user = await db.prepare(
       'SELECT * FROM users WHERE email = ? AND is_active = 1'
     ).bind(body.email?.toLowerCase()).first() as any
 
@@ -387,7 +389,7 @@ app.post('/api/auth/login', async (c) => {
 
     let storeId = null
     if (user.role === 'merchant') {
-      const store = await c.env.DB.prepare('SELECT id FROM stores WHERE user_id = ? LIMIT 1').bind(user.id).first() as any
+      const store = await db.prepare('SELECT id FROM stores WHERE user_id = ? LIMIT 1').bind(user.id).first() as any
       storeId = store?.id || null
     }
 
@@ -395,7 +397,7 @@ app.post('/api/auth/login', async (c) => {
     const expiresAt = new Date()
     expiresAt.setDate(expiresAt.getDate() + 30)
 
-    await c.env.DB.prepare(
+    await db.prepare(
       'INSERT INTO sessions (id, user_id, store_id, token, expires_at) VALUES (?, ?, ?, ?, ?)'
     ).bind(crypto.randomUUID(), user.id, storeId, token, expiresAt.toISOString()).run()
 
@@ -410,6 +412,7 @@ app.post('/api/auth/login', async (c) => {
 // ─── API: Register ─────────────────────────────────────────────
 app.post('/api/auth/register', async (c) => {
   try {
+    const db: any = (c.env && c.env.DB) ? c.env.DB : new PgD1Database(getPgPool());
     const body = await c.req.json() as any
     const { name, email, password, store_name, store_slug } = body
 
@@ -417,26 +420,26 @@ app.post('/api/auth/register', async (c) => {
       return c.json({ message: 'جميع الحقول مطلوبة' }, 400)
     }
 
-    const existing = await c.env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email.toLowerCase()).first()
+    const existing = await db.prepare('SELECT id FROM users WHERE email = ?').bind(email.toLowerCase()).first()
     if (existing) return c.json({ message: 'البريد الإلكتروني مسجل مسبقاً' }, 400)
 
-    const existingSlug = await c.env.DB.prepare('SELECT id FROM stores WHERE slug = ?').bind(store_slug).first()
+    const existingSlug = await db.prepare('SELECT id FROM stores WHERE slug = ?').bind(store_slug).first()
     if (existingSlug) return c.json({ message: 'رابط المتجر محجوز، اختر رابطاً آخر' }, 400)
 
     const hashedPassword = await hashPassword(password)
-    const userResult = await c.env.DB.prepare(
+    const userResult = await db.prepare(
       'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)'
     ).bind(name, email.toLowerCase(), hashedPassword, 'merchant').run()
 
     const userId = userResult.meta.last_row_id
-    const storeResult = await c.env.DB.prepare(
+    const storeResult = await db.prepare(
       "INSERT INTO stores (user_id, plan_id, name, slug, status, subscription_status, subscription_ends_at) VALUES (?, 1, ?, ?, 'active', 'active', datetime('now', '+5 days'))"
     ).bind(userId, store_name, store_slug).run()
 
     const storeId = storeResult.meta.last_row_id
 
     // Seed default categories for the new store
-    await c.env.DB.prepare(`
+    await db.prepare(`
       INSERT INTO categories (store_id, name, slug, sort_order) VALUES 
       (?, 'الجوالات والهواتف', 'phones', 1),
       (?, 'أجهزة الكمبيوتر', 'computers', 2),
@@ -452,7 +455,7 @@ app.post('/api/auth/register', async (c) => {
     const expiresAt = new Date()
     expiresAt.setDate(expiresAt.getDate() + 30)
 
-    await c.env.DB.prepare(
+    await db.prepare(
       'INSERT INTO sessions (id, user_id, store_id, token, expires_at) VALUES (?, ?, ?, ?, ?)'
     ).bind(crypto.randomUUID(), userId, storeId, token, expiresAt.toISOString()).run()
 
