@@ -154,10 +154,10 @@ app.use('*', async (c, next) => {
   const host = url.hostname;
   
   // Exclude main platform domains and raw IP addresses
-  const mainHosts = ['localhost', '127.0.0.1', '0.0.0.0', 'shop-saas.pages.dev'];
+  const isMainHost = host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' || host.endsWith('.onrender.com') || host.endsWith('.pages.dev');
   const isIpAddress = /^(\d{1,3}\.){3}\d{1,3}$/.test(host);
   
-  if (!mainHosts.includes(host) && !host.endsWith('.localhost') && !isIpAddress) {
+  if (!isMainHost && !host.endsWith('.localhost') && !isIpAddress) {
     try {
       // Find the store slug associated with this custom domain
       const store = await c.env.DB.prepare(
