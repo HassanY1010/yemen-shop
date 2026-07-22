@@ -49,14 +49,21 @@ export const memoryUploads = new Map<string, ArrayBuffer>();
 // ─── Image & Asset Routes ─────────────────────────────────────
 app.get('/uploads/:filename', async (c) => {
   const filename = c.req.param('filename');
-  let fileData: ArrayBuffer | null = memoryUploads.get(filename) || null;
-  if (!fileData && c.env.SESSIONS) {
+  let fileData: ArrayBuffer | Uint8Array | null = memoryUploads.get(filename) || null;
+
+  if (!fileData) {
+    try {
+      const filePath = path.join(process.cwd(), 'public', 'uploads', filename);
+      fileData = await fs.readFile(filePath);
+    } catch (e) {}
+  }
+
+  if (!fileData && c.env?.SESSIONS) {
     try {
       fileData = await c.env.SESSIONS.get(`upload:${filename}`, 'arrayBuffer');
-    } catch (e) {
-      console.error('KV get error:', e);
-    }
+    } catch (e) {}
   }
+
   if (!fileData) {
     return c.text('Not Found', 404);
   }
@@ -68,11 +75,14 @@ app.get('/uploads/:filename', async (c) => {
   else if (ext === 'gif') contentType = 'image/gif';
   else if (ext === 'svg') contentType = 'image/svg+xml';
 
-  return new Response(fileData, {
+  return new Response(fileData as any, {
     status: 200,
-    headers: { 'Content-Type': contentType }
+    headers: {
+      'Content-Type': contentType,
+      'Cache-Control': 'public, max-age=31536000, immutable'
+    }
   });
-})
+});
 
 
 

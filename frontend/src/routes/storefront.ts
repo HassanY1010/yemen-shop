@@ -915,9 +915,9 @@ store.get('/:slug', async (c) => {
     <div class="bg-card rounded-2xl overflow-hidden shadow-sm card-hover border border-std cursor-pointer" 
          onclick="window.location.href='/store/${slug}/products/${product.id}'">
       <div class="relative aspect-square bg-page overflow-hidden">
-        <img src="${product.image || product.primary_image || 'https://via.placeholder.com/300x300?text=No+Image'}" 
+        <img src="${product.image || product.primary_image || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Crect width='400' height='400' fill='%23f1f5f9'/%3E%3Cpath d='M160 160c0-22.1 17.9-40 40-40s40 17.9 40 40-17.9 40-40 40-40-17.9-40-40zm120 120H120l50-65 35 45 25-30 50 50z' fill='%2394a3b8'/%3E%3Ctext x='50%25' y='82%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='16' font-weight='bold' fill='%2364748b'%3Eلا توجد صورة%3C/text%3E%3C/svg%3E"}" 
              alt="${product.name}" class="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-             onerror="this.src='https://via.placeholder.com/300x300?text=No+Image'">
+             onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 400 400\'%3E%3Crect width=\'400\' height=\'400\' fill=\'%23f1f5f9\'/%3E%3Cpath d=\'M160 160c0-22.1 17.9-40 40-40s40 17.9 40 40-17.9 40-40 40-40-17.9-40-40zm120 120H120l50-65 35 45 25-30 50 50z\' fill=\'%2394a3b8\'/%3E%3Ctext x=\'50%25\' y=\'82%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-family=\'sans-serif\' font-size=\'16\' font-weight=\'bold\' fill=\'%2364748b\'%3Eلا توجد صورة%3C/text%3E%3C/svg%3E';">
         ${hasDiscount ? `
           <div class="absolute top-2 right-2 ${flashSale ? 'bg-red-600' : 'bg-red-500'} text-white text-xs font-bold px-2 py-1 rounded-full shadow-md z-10">
             ${discountLabel}

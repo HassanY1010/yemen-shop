@@ -995,9 +995,18 @@ const handleUpload = async (c: any) => {
     const ext = originalName.substring(originalName.lastIndexOf('.')) || '.jpg';
     const filename = `${crypto.randomUUID()}${ext}`;
     
-    // Read buffer and save to memory map + KV binding
+    // Read buffer and save to memory map + disk + KV binding
     const buffer = await file.arrayBuffer();
     memoryUploads.set(filename, buffer);
+
+    try {
+      const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
+      await fs.mkdir(uploadsDir, { recursive: true });
+      await fs.writeFile(path.join(uploadsDir, filename), Buffer.from(buffer));
+    } catch (e) {
+      console.warn('Disk save warning:', e);
+    }
+
     if (c.env.SESSIONS) {
       try {
         await c.env.SESSIONS.put(`upload:${filename}`, buffer);

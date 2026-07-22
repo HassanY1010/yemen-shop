@@ -178,6 +178,12 @@ async function syncPgTables(pool: any) {
         SELECT url FROM product_images WHERE product_id = products.id ORDER BY is_primary DESC, id ASC LIMIT 1
       ) WHERE (image IS NULL OR image = '') AND EXISTS (SELECT 1 FROM product_images WHERE product_id = products.id);
 
+      UPDATE products SET image = 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600' WHERE (image IS NULL OR image = '' OR image LIKE '%placeholder%') AND (LOWER(name) LIKE '%سمّاعة%' OR LOWER(name) LIKE '%سماعة%' OR LOWER(name) LIKE '%headphone%' OR LOWER(name) LIKE '%airpods%');
+      UPDATE products SET image = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600' WHERE (image IS NULL OR image = '' OR image LIKE '%placeholder%') AND (LOWER(name) LIKE '%ساعة%' OR LOWER(name) LIKE '%watch%');
+      UPDATE products SET image = 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600' WHERE (image IS NULL OR image = '' OR image LIKE '%placeholder%') AND (LOWER(name) LIKE '%حذاء%' OR LOWER(name) LIKE '%shoe%');
+      UPDATE products SET image = 'https://images.unsplash.com/photo-1585386959984-a4155224a1ad?w=600' WHERE (image IS NULL OR image = '' OR image LIKE '%placeholder%') AND (LOWER(name) LIKE '%عطر%' OR LOWER(name) LIKE '%perfume%');
+      UPDATE products SET image = 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=600' WHERE (image IS NULL OR image = '' OR image LIKE '%placeholder%');
+
       DELETE FROM flash_sales WHERE title LIKE '%test%' OR title LIKE '%Test%';
 
       CREATE TABLE IF NOT EXISTS product_images (
