@@ -3,7 +3,8 @@
 // ============================================
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import { serveStatic } from 'hono/cloudflare-workers'
+import { serveStatic as serveStaticNode } from '@hono/node-server/serve-static'
+import { serveStatic as serveStaticCloudflare } from 'hono/cloudflare-workers'
 import { Bindings, Variables } from './types/index'
 import { authMiddleware, requireAuth, requireAdmin, requireMerchant, getToken, setAuthCookie } from './middleware/auth'
 import { tenantMiddleware } from './middleware/tenant'
@@ -14,6 +15,7 @@ import swContent from '../public/sw.js?raw'
 import { hashPassword, generateToken, verifyPassword, generateSlug, generateOrderNumber, fetchLaravel, LARAVEL_API_URL } from './utils/helpers'
 import { NotificationService } from './services/notification'
 import { PaymentService } from './services/payment'
+import { getPgPool, PgD1Database } from './utils/db'
 
 import dashboardRoutes from './routes/dashboard'
 import adminRoutes from './routes/admin'
@@ -22,6 +24,16 @@ import storefrontRoutes from './routes/storefront'
 import landingRoutes from './routes/landing'
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
+
+app.use('*', async (c, next) => {
+  const pgPool = getPgPool();
+  if (pgPool) {
+    c.env.DB = new PgD1Database(pgPool) as any;
+  } else if (!c.env.DB || typeof (c.env.DB as any).prepare !== 'function') {
+    c.env.DB = new LaravelD1Database() as any;
+  }
+  return next();
+});
 
 export const memoryUploads = new Map<string, ArrayBuffer>();
 
@@ -141,19 +153,7 @@ class LaravelD1Database {
   }
 }
 
-import { getPgPool, PgD1Database } from './utils/db'
 
-app.use('*', async (c, next) => {
-  const pgPool = getPgPool();
-  if (pgPool) {
-    c.env.DB = new PgD1Database(pgPool) as any;
-  } else if (!c.env.DB || typeof (c.env.DB as any).prepare !== 'function') {
-    c.env.DB = new LaravelD1Database() as any;
-  }
-  return next();
-});
-
-// DB initialization is handled by Laravel backend.
 
 // ─── Custom Domain Dynamic Routing Middleware ──────────────────
 app.use('*', async (c, next) => {
@@ -198,7 +198,21 @@ app.onError((err, c) => {
 })
 
 // Serve static files
-app.use('/static/*', serveStatic({ root: './public' }))
+app.use('/static/*', async (c, next) => {
+  if (process.env.DATABASE_URL) {
+    try {
+      return await serveStaticNode({ root: './public' })(c, next);
+    } catch (e) {
+      return next();
+    }
+  } else {
+    try {
+      return await serveStaticCloudflare({ root: './public' })(c, next);
+    } catch (e) {
+      return next();
+    }
+  }
+});
 app.get('/manifest.json', (c) => c.text(manifestContent, 200, { 'Content-Type': 'application/json' }))
 app.get('/sw.js', (c) => c.text(swContent, 200, { 'Content-Type': 'application/javascript' }))
 app.get('/robots.txt', (c) => {
