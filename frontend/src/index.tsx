@@ -1069,20 +1069,28 @@ app.all('/api/*', async (c) => {
     headers['Content-Type'] = contentType;
   }
 
-  const res = await fetchLaravel(path, token, {
-    method,
-    headers,
-    body: body ? (contentType.includes('application/json') ? JSON.stringify(body) : body) : undefined
-  });
+  try {
+    const res = await fetchLaravel(path, token, {
+      method,
+      headers,
+      body: body ? (contentType.includes('application/json') ? JSON.stringify(body) : body) : undefined
+    });
 
-  const resContentType = res.headers.get('Content-Type') || 'application/json';
-  
-  if (resContentType.includes('application/json')) {
-    const data = await res.json();
-    return c.json(data, res.status as any);
-  } else {
-    const data = await res.text();
-    return c.text(data, res.status as any);
+    if (res && res.headers) {
+      const resContentType = res.headers.get('Content-Type') || 'application/json';
+      
+      if (resContentType.includes('application/json')) {
+        const data = await res.json();
+        return c.json(data, res.status as any);
+      } else {
+        const data = await res.text();
+        return c.text(data, res.status as any);
+      }
+    }
+    return c.json({ success: false, message: 'استجابة غير متاحة من الخادم' }, 502);
+  } catch (err: any) {
+    console.error('[API Proxy Catch Error]:', err);
+    return c.json({ success: false, message: 'خطأ في الاتصال بالخادم الخلفي', error: err?.message || 'Unknown error' }, 500);
   }
 });
 
