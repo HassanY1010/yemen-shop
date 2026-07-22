@@ -13,6 +13,15 @@ import manifestContent from '../public/manifest.json?raw'
 // @ts-ignore
 import swContent from '../public/sw.js?raw'
 import { hashPassword, generateToken, verifyPassword, generateSlug, generateOrderNumber } from './utils/helpers'
+import { NotificationService } from './services/notification'
+import { PaymentService } from './services/payment'
+import { getPgPool, PgD1Database } from './utils/db'
+
+import dashboardRoutes from './routes/dashboard'
+import adminRoutes from './routes/admin'
+import apiRoutes from './routes/api'
+import storefrontRoutes from './routes/storefront'
+import landingRoutes from './routes/landing'
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 

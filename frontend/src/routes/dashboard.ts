@@ -4,7 +4,7 @@
 import { Hono } from 'hono';
 import { Bindings, Variables } from '../types/index';
 import { dashboardLayout } from '../utils/templates';
-import { formatCurrency, getOrderStatusLabel, getOrderStatusColor, fetchLaravel } from '../utils/helpers';
+import { formatCurrency, getOrderStatusLabel, getOrderStatusColor } from '../utils/helpers';
 import { getToken } from '../middleware/auth';
 
 const dashboard = new Hono<{ Bindings: Bindings; Variables: Variables }>();
