@@ -499,7 +499,7 @@ auth.post('/api/auth/change-password', async (c) => {
     }
 
     const session = await c.env.DB.prepare(
-      'SELECT * FROM sessions WHERE token = ? AND expires_at > datetime("now")'
+      'SELECT * FROM sessions WHERE token = ? AND expires_at > CURRENT_TIMESTAMP'
     ).bind(token).first() as any;
 
     if (!session) {
@@ -508,7 +508,7 @@ auth.post('/api/auth/change-password', async (c) => {
 
     const hashedPassword = await hashPassword(newPassword);
     await c.env.DB.prepare(
-      'UPDATE users SET password = ?, force_password_change = 0, updated_at = datetime("now") WHERE id = ?'
+      'UPDATE users SET password = ?, force_password_change = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
     ).bind(hashedPassword, session.user_id).run();
 
     const user = await c.env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(session.user_id).first() as any;

@@ -478,7 +478,9 @@ export class PgD1Database {
 
     const createStatement = (params: any[] = []) => {
       const cleanParams = (params || []).map((p: any) => {
+        if (p === undefined) return null;
         if (typeof p === 'boolean') return p ? 1 : 0;
+        if (typeof p === 'number' && isNaN(p)) return 0;
         return p;
       });
 
@@ -547,4 +549,30 @@ export class PgD1Database {
     };
     return createStatement();
   }
+
+  async exec(sql: string) {
+    const pool = this.pool || getPgPool();
+    return await pool.query(sql);
+  }
+
+  async batch(statements: any[]) {
+    const pool = this.pool || getPgPool();
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const results = [];
+      for (const stmt of statements) {
+        const res = await stmt.run();
+        results.push(res);
+      }
+      await client.query('COMMIT');
+      return results;
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
 }
+

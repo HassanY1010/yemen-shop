@@ -2788,11 +2788,11 @@ store.post('/:slug/change-password', async (c) => {
   const { token, newPassword } = await c.req.json() as any;
   if (!token || !newPassword || newPassword.length < 6) return c.json({ message: 'بيانات غير صالحة' }, 400);
 
-  const session = await c.env.DB.prepare('SELECT * FROM sessions WHERE token = ? AND expires_at > datetime("now")').bind(token).first() as any;
+  const session = await c.env.DB.prepare('SELECT * FROM sessions WHERE token = ? AND expires_at > CURRENT_TIMESTAMP').bind(token).first() as any;
   if (!session) return c.json({ message: 'الجلسة غير صالحة أو انتهت' }, 400);
 
   const hashedPassword = await hashPassword(newPassword);
-  await c.env.DB.prepare('UPDATE customers SET password = ?, force_password_change = 0, updated_at = datetime("now") WHERE id = ?')
+  await c.env.DB.prepare('UPDATE customers SET password = ?, force_password_change = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
     .bind(hashedPassword, session.user_id).run();
 
   // Create session token

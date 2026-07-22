@@ -205,10 +205,12 @@ const handleCreateProduct = async (c: any) => {
 
   const slug = generateSlug(data.name) + '-' + Date.now().toString(36);
   
+  const featVal = data.featured || data.is_featured || 0;
+
   const result = await c.env.DB.prepare(`
     INSERT INTO products (store_id, category_id, name, slug, description, short_description, 
-      sku, price, sale_price, currency, stock, status, featured)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      sku, price, sale_price, currency, stock, status, featured, is_featured)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     store.id,
     data.category_id || null,
@@ -217,12 +219,13 @@ const handleCreateProduct = async (c: any) => {
     data.description || null,
     data.short_description || null,
     data.sku || null,
-    data.price,
-    data.sale_price || null,
+    parseFloat(data.price) || 0,
+    data.sale_price ? parseFloat(data.sale_price) : null,
     data.currency || 'YER',
-    data.stock || 0,
+    parseInt(data.stock) || 0,
     data.status || 'active',
-    data.featured || 0
+    featVal,
+    featVal
   ).run();
 
   const productId = result.meta.last_row_id;
@@ -253,11 +256,12 @@ const handleUpdateProduct = async (c: any) => {
   if (!product) return c.json({ message: 'المنتج غير موجود' }, 404);
 
   const data = await c.req.json() as any;
+  const featVal = data.featured !== undefined ? data.featured : (data.is_featured !== undefined ? data.is_featured : 0);
 
   await c.env.DB.prepare(`
     UPDATE products SET 
       name = ?, category_id = ?, description = ?, short_description = ?,
-      sku = ?, price = ?, sale_price = ?, currency = ?, stock = ?, status = ?, featured = ?,
+      sku = ?, price = ?, sale_price = ?, currency = ?, stock = ?, status = ?, featured = ?, is_featured = ?,
       updated_at = CURRENT_TIMESTAMP
     WHERE id = ? AND store_id = ?
   `).bind(
@@ -266,12 +270,13 @@ const handleUpdateProduct = async (c: any) => {
     data.description || null,
     data.short_description || null,
     data.sku || null,
-    data.price,
-    data.sale_price || null,
+    parseFloat(data.price) || 0,
+    data.sale_price ? parseFloat(data.sale_price) : null,
     data.currency || 'YER',
-    data.stock || 0,
+    parseInt(data.stock) || 0,
     data.status || 'active',
-    data.featured || 0,
+    featVal,
+    featVal,
     productId,
     store.id
   ).run();
@@ -515,19 +520,22 @@ api.post('/coupons', async (c) => {
   ).bind(store.id, data.code.toUpperCase()).first();
   if (existing) return c.json({ message: 'كود الكوبون مستخدم بالفعل' }, 409);
 
+  const minOrderVal = data.min_order_amount || data.min_order || 0;
+
   const result = await c.env.DB.prepare(`
-    INSERT INTO coupons (store_id, code, type, value, min_order_amount, max_uses, expires_at, description, is_active)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO coupons (store_id, code, type, value, min_order, min_order_amount, max_uses, uses_count, used_count, expires_at, description, is_active)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?)
   `).bind(
     store.id,
     data.code.toUpperCase(),
     data.type,
-    data.value,
-    data.min_order_amount || null,
-    data.max_uses || null,
+    parseFloat(data.value) || 0,
+    minOrderVal,
+    minOrderVal,
+    data.max_uses ? parseInt(data.max_uses) : null,
     data.expires_at || null,
     data.description || null,
-    data.is_active !== undefined ? data.is_active : 1
+    data.is_active !== undefined ? (data.is_active ? 1 : 0) : 1
   ).run();
 
   return c.json({ id: result.meta.last_row_id, message: 'تم إضافة الكوبون' }, 201);
@@ -545,16 +553,20 @@ api.put('/coupons/:id', async (c) => {
 
   if (data.code !== undefined) { fields.push('code = ?'); values.push(data.code.toUpperCase()); }
   if (data.type !== undefined) { fields.push('type = ?'); values.push(data.type); }
-  if (data.value !== undefined) { fields.push('value = ?'); values.push(data.value); }
-  if (data.min_order_amount !== undefined) { fields.push('min_order_amount = ?'); values.push(data.min_order_amount); }
-  if (data.max_uses !== undefined) { fields.push('max_uses = ?'); values.push(data.max_uses); }
+  if (data.value !== undefined) { fields.push('value = ?'); values.push(parseFloat(data.value) || 0); }
+  if (data.min_order_amount !== undefined || data.min_order !== undefined) {
+    const minVal = data.min_order_amount !== undefined ? data.min_order_amount : data.min_order;
+    fields.push('min_order = ?, min_order_amount = ?');
+    values.push(minVal, minVal);
+  }
+  if (data.max_uses !== undefined) { fields.push('max_uses = ?'); values.push(data.max_uses ? parseInt(data.max_uses) : null); }
   if (data.expires_at !== undefined) { fields.push('expires_at = ?'); values.push(data.expires_at); }
   if (data.description !== undefined) { fields.push('description = ?'); values.push(data.description); }
-  if (data.is_active !== undefined) { fields.push('is_active = ?'); values.push(data.is_active); }
+  if (data.is_active !== undefined) { fields.push('is_active = ?'); values.push(data.is_active ? 1 : 0); }
 
   if (fields.length === 0) return c.json({ message: 'لا توجد بيانات' }, 400);
 
-  fields.push("updated_at = datetime('now')");
+  fields.push("updated_at = CURRENT_TIMESTAMP");
   values.push(id, store.id);
 
   await c.env.DB.prepare(
@@ -999,8 +1011,11 @@ api.post('/flash-sales', async (c) => {
   const store = await getStore(c) as any;
   if (!store) return c.json({ error: 'Not found' }, 404);
 
-  const data = await c.req.json() as any;
-  if (!data.product_id || !data.title || !data.discount_value || !data.start_at || !data.end_at) {
+  const startVal = data.start_at || data.starts_at;
+  const endVal = data.end_at || data.ends_at;
+  const discVal = parseFloat(data.discount_value || data.discount_percentage) || 0;
+
+  if (!data.product_id || !data.title || !discVal || !startVal || !endVal) {
     return c.json({ message: 'بيانات العرض غير مكتملة' }, 400);
   }
 
@@ -1011,14 +1026,15 @@ api.post('/flash-sales', async (c) => {
   if (!product) return c.json({ message: 'المنتج غير موجود' }, 404);
 
   const result = await c.env.DB.prepare(`
-    INSERT INTO flash_sales (store_id, product_id, title, discount_type, discount_value, start_at, end_at, max_quantity, is_active)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+    INSERT INTO flash_sales (store_id, product_id, title, discount_type, discount_value, discount_percentage, start_at, starts_at, end_at, ends_at, max_quantity, is_active)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
   `).bind(
     store.id, data.product_id, data.title,
     data.discount_type || 'percentage',
-    data.discount_value,
-    data.start_at, data.end_at,
-    data.max_quantity || null
+    discVal, discVal,
+    startVal, startVal,
+    endVal, endVal,
+    data.max_quantity ? parseInt(data.max_quantity) : null
   ).run();
 
   return c.json({ id: result.meta.last_row_id, message: 'تم إنشاء العرض' }, 201);
@@ -1031,15 +1047,21 @@ api.put('/flash-sales/:id', async (c) => {
   const id = parseInt(c.req.param('id'));
   const data = await c.req.json() as any;
 
+  const startVal = data.start_at || data.starts_at;
+  const endVal = data.end_at || data.ends_at;
+  const discVal = parseFloat(data.discount_value || data.discount_percentage) || 0;
+
   await c.env.DB.prepare(`
     UPDATE flash_sales SET
-      title = ?, discount_type = ?, discount_value = ?,
-      start_at = ?, end_at = ?, max_quantity = ?, is_active = ?,
-      updated_at = datetime('now')
+      title = ?, discount_type = ?, discount_value = ?, discount_percentage = ?,
+      start_at = ?, starts_at = ?, end_at = ?, ends_at = ?, max_quantity = ?, is_active = ?,
+      updated_at = CURRENT_TIMESTAMP
     WHERE id = ? AND store_id = ?
   `).bind(
-    data.title, data.discount_type || 'percentage', data.discount_value,
-    data.start_at, data.end_at, data.max_quantity || null, data.is_active ?? 1,
+    data.title, data.discount_type || 'percentage', discVal, discVal,
+    startVal, startVal, endVal, endVal,
+    data.max_quantity ? parseInt(data.max_quantity) : null,
+    data.is_active !== undefined ? (data.is_active ? 1 : 0) : 1,
     id, store.id
   ).run();
 
