@@ -858,16 +858,15 @@ store.get('/:slug', async (c) => {
   const primary = storeData.primary_color || '#4F46E5';
 
   // Featured products
-  // Featured products
   const featuredProducts = await c.env.DB.prepare(`
-    SELECT p.*, (SELECT url FROM product_images WHERE product_id = p.id LIMIT 1) as image FROM products p
+    SELECT p.*, COALESCE(p.image, (SELECT url FROM product_images WHERE product_id = p.id ORDER BY is_primary DESC, id ASC LIMIT 1)) as primary_image FROM products p
     WHERE p.store_id = ? AND p.status = 'active'
     ORDER BY p.id DESC LIMIT 8
   `).bind(storeData.id).all();
 
   // All products (latest)
   const latestProducts = await c.env.DB.prepare(`
-    SELECT p.*, (SELECT url FROM product_images WHERE product_id = p.id LIMIT 1) as image, c.name as cat_name FROM products p
+    SELECT p.*, COALESCE(p.image, (SELECT url FROM product_images WHERE product_id = p.id ORDER BY is_primary DESC, id ASC LIMIT 1)) as primary_image, c.name as cat_name FROM products p
     LEFT JOIN categories c ON c.id = p.category_id
     WHERE p.store_id = ? AND p.status = 'active'
     ORDER BY p.id DESC LIMIT 12
@@ -907,7 +906,7 @@ store.get('/:slug', async (c) => {
     <div class="bg-card rounded-2xl overflow-hidden shadow-sm card-hover border border-std cursor-pointer" 
          onclick="window.location.href='/store/${slug}/products/${product.id}'">
       <div class="relative aspect-square bg-page overflow-hidden">
-        <img src="${product.image || 'https://via.placeholder.com/300x300?text=No+Image'}" 
+        <img src="${product.image || product.primary_image || 'https://via.placeholder.com/300x300?text=No+Image'}" 
              alt="${product.name}" class="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
              onerror="this.src='https://via.placeholder.com/300x300?text=No+Image'">
         ${hasDiscount ? `
@@ -1050,10 +1049,9 @@ store.get('/:slug/products', async (c) => {
   const perPage = 12;
   const offset = (page - 1) * perPage;
 
-  let query = `SELECT p.*, COALESCE(
-      (SELECT url FROM product_images WHERE product_id = p.id AND is_primary = 1 LIMIT 1),
-      (SELECT url FROM product_images WHERE product_id = p.id LIMIT 1)
-    ) as image, c.name as cat_name FROM products p
+  let query = `SELECT p.*, COALESCE(p.image,
+      (SELECT url FROM product_images WHERE product_id = p.id ORDER BY is_primary DESC, id ASC LIMIT 1)
+    ) as primary_image, c.name as cat_name FROM products p
     LEFT JOIN categories c ON c.id = p.category_id
     WHERE p.store_id = ? AND p.status = 'active'`;
   const params: any[] = [storeData.id];
@@ -1162,7 +1160,7 @@ store.get('/:slug/products', async (c) => {
             <div class="bg-card rounded-2xl overflow-hidden shadow-sm card-hover border border-std cursor-pointer"
                  onclick="window.location.href='/store/${slug}/products/${p.id}'">
               <div class="relative aspect-square bg-page overflow-hidden">
-                <img src="${p.image || 'https://via.placeholder.com/300x300?text=No+Image'}" 
+                <img src="${p.image || p.primary_image || 'https://via.placeholder.com/300x300?text=No+Image'}" 
                      alt="${p.name}" class="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
                      onerror="this.src='https://via.placeholder.com/300x300?text=No+Image'">
                 ${hasDiscount ? `

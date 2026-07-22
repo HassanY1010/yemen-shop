@@ -275,7 +275,7 @@ dashboard.get('/products', async (c) => {
   const offset = (page - 1) * perPage;
 
   let query = `SELECT p.*, 
-      (SELECT url FROM product_images WHERE product_id = p.id LIMIT 1) as image,
+      COALESCE(p.image, (SELECT url FROM product_images WHERE product_id = p.id ORDER BY is_primary DESC, id ASC LIMIT 1)) as primary_image,
       c.name as category_name
     FROM products p
     LEFT JOIN categories c ON c.id = p.category_id
@@ -340,7 +340,7 @@ dashboard.get('/products', async (c) => {
     ${(products.results as any[]).map(product => `
     <div class="bg-card rounded-2xl border border-std overflow-hidden card-hover shadow-sm group">
       <div class="relative aspect-square bg-gray-50 dark:bg-slate-800">
-        <img src="${product.image || 'https://via.placeholder.com/300x300?text=No+Image'}"
+        <img src="${product.image || product.primary_image || 'https://via.placeholder.com/300x300?text=No+Image'}"
              alt="${product.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
         ${product.featured ? '<span class="absolute top-2 right-2 bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded-full shadow"><i class="fas fa-star text-xs ml-1"></i>مميز</span>' : ''}
         ${product.stock === 0 ? '<div class="absolute inset-0 bg-black/50 flex items-center justify-center"><span class="bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">نفد المخزون</span></div>' : product.stock <= 5 ? '<span class="absolute bottom-2 right-2 bg-orange-400 text-white text-xs font-bold px-2 py-1 rounded-full">مخزن منخفض</span>' : ''}

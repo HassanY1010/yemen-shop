@@ -154,6 +154,7 @@ async function syncPgTables(pool: any) {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS image VARCHAR(255);
       ALTER TABLE products ADD COLUMN IF NOT EXISTS views INT DEFAULT 0;
       ALTER TABLE products ADD COLUMN IF NOT EXISTS sale_price NUMERIC(10,2);
       ALTER TABLE products ADD COLUMN IF NOT EXISTS sort_order INT DEFAULT 0;
@@ -171,6 +172,10 @@ async function syncPgTables(pool: any) {
       ALTER TABLE products ADD COLUMN IF NOT EXISTS is_active INT DEFAULT 1;
       ALTER TABLE products ADD COLUMN IF NOT EXISTS is_featured INT DEFAULT 0;
       ALTER TABLE products ADD COLUMN IF NOT EXISTS featured INT DEFAULT 0;
+
+      UPDATE products SET image = (
+        SELECT url FROM product_images WHERE product_id = products.id ORDER BY is_primary DESC, id ASC LIMIT 1
+      ) WHERE (image IS NULL OR image = '') AND EXISTS (SELECT 1 FROM product_images WHERE product_id = products.id);
 
       CREATE TABLE IF NOT EXISTS product_images (
         id SERIAL PRIMARY KEY,

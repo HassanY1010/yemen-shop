@@ -209,11 +209,12 @@ const handleCreateProduct = async (c: any) => {
 
     const slug = generateSlug(data.name) + '-' + Date.now().toString(36);
     const featVal = data.featured !== undefined ? (data.featured ? 1 : 0) : (data.is_featured ? 1 : 0);
+    const primaryImg = (data.images && data.images.length > 0 && data.images[0]) ? data.images[0] : (data.image || null);
 
     const result = await c.env.DB.prepare(`
       INSERT INTO products (store_id, category_id, name, slug, description, short_description,
-        sku, price, sale_price, currency, stock, status, featured, is_featured)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        sku, price, sale_price, currency, stock, status, featured, is_featured, image)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       store.id,
       data.category_id || null,
@@ -228,7 +229,8 @@ const handleCreateProduct = async (c: any) => {
       parseInt(data.stock) || 0,
       data.status || 'active',
       featVal,
-      featVal
+      featVal,
+      primaryImg
     ).run();
 
     const productId = result.meta.last_row_id;
@@ -267,11 +269,13 @@ const handleUpdateProduct = async (c: any) => {
     const data = await c.req.json() as any;
     console.log('[UPDATE PRODUCT] id:', productId, 'payload:', JSON.stringify(data));
     const featVal = data.featured !== undefined ? (data.featured ? 1 : 0) : (data.is_featured ? 1 : 0);
+    const primaryImg = (data.images && data.images.length > 0 && data.images[0]) ? data.images[0] : (data.image || null);
 
     await c.env.DB.prepare(`
       UPDATE products SET
         name = ?, category_id = ?, description = ?, short_description = ?,
         sku = ?, price = ?, sale_price = ?, currency = ?, stock = ?, status = ?, featured = ?, is_featured = ?,
+        image = COALESCE(?, image),
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ? AND store_id = ?
     `).bind(
@@ -287,6 +291,7 @@ const handleUpdateProduct = async (c: any) => {
       data.status || 'active',
       featVal,
       featVal,
+      primaryImg,
       productId,
       store.id
     ).run();
@@ -302,6 +307,9 @@ const handleUpdateProduct = async (c: any) => {
             'INSERT INTO product_images (product_id, store_id, url, is_primary, sort_order) VALUES (?, ?, ?, ?, ?)'
           ).bind(productId, store.id, data.images[i], i === 0 ? 1 : 0, i).run();
         }
+      }
+      if (primaryImg) {
+        await c.env.DB.prepare('UPDATE products SET image = ? WHERE id = ?').bind(primaryImg, productId).run();
       }
     }
 
