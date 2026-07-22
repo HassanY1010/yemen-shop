@@ -154,6 +154,9 @@ async function syncPgTables(pool: any) {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS views INT DEFAULT 0;
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS sale_price NUMERIC(10,2);
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS sort_order INT DEFAULT 0;
       ALTER TABLE products ADD COLUMN IF NOT EXISTS barcode VARCHAR(100);
       ALTER TABLE products ADD COLUMN IF NOT EXISTS short_description TEXT;
       ALTER TABLE products ADD COLUMN IF NOT EXISTS cost_price NUMERIC(10,2);

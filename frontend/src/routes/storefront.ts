@@ -1233,10 +1233,14 @@ store.get('/:slug/products/:id', async (c) => {
      WHERE p.store_id = ? AND p.category_id = ? AND p.id != ? AND p.status = 'active' LIMIT 4`
   ).bind(storeData.id, product.category_id || 0, productId).all();
 
-  // Update views
-  await c.env.DB.prepare(
-    'UPDATE products SET views = views + 1 WHERE id = ?'
-  ).bind(productId).run();
+  // Update views safely
+  try {
+    await c.env.DB.prepare(
+      'UPDATE products SET views = COALESCE(views, 0) + 1 WHERE id = ?'
+    ).bind(productId).run();
+  } catch (viewsErr: any) {
+    console.error('[PRODUCT DETAIL] views update error:', viewsErr?.message);
+  }
 
   // Fetch product reviews list
   const reviewsDb = await c.env.DB.prepare(
@@ -1258,8 +1262,8 @@ store.get('/:slug/products/:id', async (c) => {
   const flashSale = await c.env.DB.prepare(`
     SELECT * FROM flash_sales
     WHERE product_id = ? AND is_active = 1
-      AND start_at <= datetime('now')
-      AND end_at >= datetime('now')
+      AND (start_at <= CURRENT_TIMESTAMP OR starts_at <= CURRENT_TIMESTAMP)
+      AND (end_at >= CURRENT_TIMESTAMP OR ends_at >= CURRENT_TIMESTAMP)
       AND (max_quantity IS NULL OR sold_quantity < max_quantity)
     LIMIT 1
   `).bind(productId).first() as any;
