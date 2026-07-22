@@ -3,7 +3,7 @@
 // ============================================
 import { Hono } from 'hono';
 import { Bindings, Variables } from '../types/index';
-import { generateSlug, generateOrderNumber } from '../utils/helpers';
+import { generateSlug, generateOrderNumber, getEnvVar } from '../utils/helpers';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { NotificationService } from '../services/notification';
@@ -1200,9 +1200,9 @@ const handleUpload = async (c: any) => {
     const fileBuffer = Buffer.from(buffer);
     const filename = `${crypto.randomUUID()}${ext}`;
 
-    const supabaseUrl = c.env?.SUPABASE_URL || process.env.SUPABASE_URL || 'https://abybrwyyhuacyrexoibi.supabase.co';
-    const supabaseKey = c.env?.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || c.env?.SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFieWJyd3l5aHVhY3lyZXhvaWJpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDY5MTY1NCwiZXhwIjoyMTAwMjY3NjU0fQ.33WnX0G0vNqT_F0j3M-E6XbX6uNCiszRbdS5Hi5OylQ';
-    const bucket = c.env?.SUPABASE_STORAGE_BUCKET || process.env.SUPABASE_STORAGE_BUCKET || 'uploads';
+    const supabaseUrl = getEnvVar(c, 'SUPABASE_URL', 'https://abybrwyyhuacyrexoibi.supabase.co');
+    const supabaseKey = getEnvVar(c, 'SUPABASE_SERVICE_ROLE_KEY') || getEnvVar(c, 'SUPABASE_ANON_KEY') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFieWJyd3l5aHVhY3lyZXhvaWJpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDY5MTY1NCwiZXhwIjoyMTAwMjY3NjU0fQ.33WnX0G0vNqT_F0j3M-E6XbX6uNCiszRbdS5Hi5OylQ';
+    const bucket = getEnvVar(c, 'SUPABASE_STORAGE_BUCKET', 'uploads');
 
     let finalUrl = `/uploads/${filename}`;
 
@@ -1229,14 +1229,16 @@ const handleUpload = async (c: any) => {
       console.error('[Supabase Upload Error] Failed to reach Supabase Storage:', supaErr);
     }
 
-    // Backup to local memory map and disk
+    // Backup to local memory map and disk safely
     memoryUploads.set(filename, buffer);
-    try {
-      const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
-      await fs.mkdir(uploadsDir, { recursive: true });
-      await fs.writeFile(path.join(uploadsDir, filename), fileBuffer);
-    } catch (diskErr) {
-      console.warn('[Disk Save Warning]:', diskErr);
+    if (typeof process !== 'undefined' && typeof process.cwd === 'function') {
+      try {
+        const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
+        await fs.mkdir(uploadsDir, { recursive: true });
+        await fs.writeFile(path.join(uploadsDir, filename), fileBuffer);
+      } catch (diskErr) {
+        console.warn('[Disk Save Warning]:', diskErr);
+      }
     }
 
     if (c.env?.SESSIONS) {

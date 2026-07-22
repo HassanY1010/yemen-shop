@@ -12,7 +12,7 @@ import { tenantMiddleware } from './middleware/tenant'
 import manifestContent from '../public/manifest.json?raw'
 // @ts-ignore
 import swContent from '../public/sw.js?raw'
-import { hashPassword, generateToken, verifyPassword, generateSlug, generateOrderNumber } from './utils/helpers'
+import { hashPassword, generateToken, verifyPassword, generateSlug, generateOrderNumber, getEnvVar } from './utils/helpers'
 import { NotificationService } from './services/notification'
 import { PaymentService } from './services/payment'
 import { getPgPool, PgD1Database } from './utils/db'
@@ -52,8 +52,8 @@ app.get('/uploads/:filename', async (c) => {
   const filename = path.basename(rawFilename);
   let fileData: ArrayBuffer | Uint8Array | Response | null = memoryUploads.get(filename) || null;
 
-  // 1. Try reading from local disk (multiple candidate directories)
-  if (!fileData) {
+  // 1. Try reading from local disk safely if node process environment exists
+  if (!fileData && typeof process !== 'undefined' && typeof process.cwd === 'function') {
     const candidatePaths = [
       path.join(process.cwd(), 'public', 'uploads', filename),
       path.join(process.cwd(), '..', 'backend', 'public', 'storage', 'uploads', filename),
@@ -78,8 +78,8 @@ app.get('/uploads/:filename', async (c) => {
   // 3. Fallback: Proxy from Supabase Storage directly if not found locally
   if (!fileData) {
     try {
-      const supabaseUrl = c.env?.SUPABASE_URL || process.env.SUPABASE_URL || 'https://abybrwyyhuacyrexoibi.supabase.co';
-      const bucket = c.env?.SUPABASE_STORAGE_BUCKET || process.env.SUPABASE_STORAGE_BUCKET || 'uploads';
+      const supabaseUrl = getEnvVar(c, 'SUPABASE_URL', 'https://abybrwyyhuacyrexoibi.supabase.co');
+      const bucket = getEnvVar(c, 'SUPABASE_STORAGE_BUCKET', 'uploads');
       const supaRes = await fetch(`${supabaseUrl}/storage/v1/object/public/${bucket}/${filename}`);
       
       if (supaRes.ok) {

@@ -126,6 +126,22 @@ export const DEFAULT_STORE_LOGO = `data:image/svg+xml,%3Csvg xmlns='http://www.w
 
 export const DEFAULT_AVATAR = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Ccircle cx='100' cy='100' r='100' fill='%23e2e8f0'/%3E%3Ccircle cx='100' cy='75' r='35' fill='%2394a3b8'/%3E%3Cpath d='M30 170c0-35 30-50 70-50s70 15 70 50' fill='%2394a3b8'/%3E%3C/svg%3E`;
 
+export function getEnvVar(c: any, key: string, fallback: string = ''): string {
+  try {
+    if (c && c.env && typeof c.env === 'object' && c.env[key]) {
+      return String(c.env[key]);
+    }
+  } catch (e) {}
+
+  try {
+    if (typeof process !== 'undefined' && process && process.env && process.env[key]) {
+      return String(process.env[key]);
+    }
+  } catch (e) {}
+
+  return fallback;
+}
+
 export function getImageUrl(url: string | null | undefined, fallback: string = DEFAULT_PRODUCT_IMAGE): string {
   if (!url || typeof url !== 'string' || !url.trim()) {
     return fallback;
