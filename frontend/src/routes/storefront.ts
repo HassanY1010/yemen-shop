@@ -546,7 +546,7 @@ function storeLayout(
             const key = item.cartKey || item.id;
             return \`
             <div class="flex items-center gap-3 bg-page rounded-xl p-3">
-              <img src="\${item.image || '${DEFAULT_PRODUCT_IMAGE}'}" alt="\${item.name}" 
+              <img src="\${item.image || ''}" alt="\${item.name}" 
                    class="w-14 h-14 object-cover rounded-lg flex-shrink-0"
                    onerror="handleImgError(this)">
               <div class="flex-1 min-w-0">
