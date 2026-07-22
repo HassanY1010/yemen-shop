@@ -426,8 +426,9 @@ dashboard.get('/products/create', async (c) => {
   const user = c.get('user')!;
   const store = await getStore(c.env.DB, user.id);
   if (!store) return c.redirect('/auth/register');
-  const categories = await c.env.DB.prepare('SELECT * FROM categories WHERE store_id = ? AND is_active = 1 ORDER BY sort_order').bind(store.id).all();
-  return c.html(dashboardLayout('إضافة منتج جديد', productForm(store, categories.results as any[], null), user, store, 'products'));
+  const categoriesRes = await c.env.DB.prepare('SELECT * FROM categories WHERE store_id = ? AND is_active = 1 ORDER BY sort_order').bind(store.id).all();
+  const categoriesList = Array.isArray(categoriesRes) ? categoriesRes : (categoriesRes?.results || []);
+  return c.html(dashboardLayout('إضافة منتج جديد', productForm(store, categoriesList as any[], null), user, store, 'products'));
 });
 
 // ─── Edit Product ─────────────────────────────────────────────
@@ -444,7 +445,8 @@ dashboard.get('/products/:id/edit', async (c) => {
   const imagesDb = await c.env.DB.prepare(
     'SELECT url FROM product_images WHERE product_id = ? ORDER BY sort_order'
   ).bind(productId).all();
-  product.image_urls = (imagesDb.results as any[]).map((img: any) => img.url).join(',');
+  const imagesList = Array.isArray(imagesDb) ? imagesDb : (imagesDb?.results || []);
+  product.image_urls = imagesList.map((img: any) => img.url).join(',');
 
   const variants = await c.env.DB.prepare(
     'SELECT * FROM product_variants WHERE product_id = ? AND store_id = ? AND is_active = 1 ORDER BY sort_order'
@@ -3192,7 +3194,7 @@ function productForm(store: any, categories: any[], product: any | null): string
             <select id="pCategory"
               class="w-full px-4 py-2.5 border border-std rounded-xl text-sm bg-page text-main focus:ring-2 focus:ring-primary-300 outline-none">
               <option value="">بدون تصنيف</option>
-              ${categories.map(cat => `<option value="${cat.id}" ${product?.category_id == cat.id ? 'selected' : ''}>${cat.name}</option>`).join('')}
+              ${(Array.isArray(categories) ? categories : (categories as any)?.results || []).map((cat: any) => `<option value="${cat.id}" ${product?.category_id == cat.id ? 'selected' : ''}>${cat.name}</option>`).join('')}
             </select>
           </div>
           <div>
