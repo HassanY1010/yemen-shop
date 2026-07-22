@@ -144,13 +144,11 @@ class LaravelD1Database {
 import { getPgPool, PgD1Database } from './utils/db'
 
 app.use('*', async (c, next) => {
-  if (!c.env.DB) {
-    const pgPool = getPgPool();
-    if (pgPool) {
-      c.env.DB = new PgD1Database(pgPool) as any;
-    } else {
-      c.env.DB = new LaravelD1Database() as any;
-    }
+  const pgPool = getPgPool();
+  if (pgPool) {
+    c.env.DB = new PgD1Database(pgPool) as any;
+  } else if (!c.env.DB || typeof (c.env.DB as any).prepare !== 'function') {
+    c.env.DB = new LaravelD1Database() as any;
   }
   return next();
 });
@@ -257,8 +255,11 @@ app.get('/favicon.ico', (c) => {
 // ─── Auth Pages ────────────────────────────────────────────────
 app.get('/auth/login', async (c) => {
   const { baseLayout } = await import('./utils/templates')
-  const supportRow = await c.env.DB.prepare("SELECT value FROM platform_settings WHERE key = 'support_whatsapp'").first() as any;
-  const supportWhatsapp = supportRow?.value || '+967776461892';
+  let supportWhatsapp = '+967776461892';
+  try {
+    const supportRow = await c.env.DB.prepare("SELECT value FROM platform_settings WHERE key = 'support_whatsapp'").first() as any;
+    if (supportRow?.value) supportWhatsapp = supportRow.value;
+  } catch (e) {}
   const whatsappUrl = `https://wa.me/${supportWhatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent('مرحباً، لقد نسيت كلمة المرور الخاصة بحسابي كتاجر وأحتاج إلى إعادة تعيينها.')}`;
 
   return c.html(baseLayout('تسجيل الدخول', `
