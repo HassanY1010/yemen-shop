@@ -13,10 +13,12 @@ async function syncPgTables(pool: any) {
         email VARCHAR(255) UNIQUE NOT NULL,
         password VARCHAR(255) NOT NULL,
         role VARCHAR(50) DEFAULT 'merchant',
+        phone VARCHAR(50),
         avatar TEXT,
         is_active INT DEFAULT 1,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(50);
       ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar TEXT;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active INT DEFAULT 1;
 
@@ -33,12 +35,14 @@ async function syncPgTables(pool: any) {
         description TEXT,
         currency VARCHAR(10) DEFAULT 'YER',
         status VARCHAR(50) DEFAULT 'active',
+        is_active INT DEFAULT 1,
         subscription_status VARCHAR(50) DEFAULT 'active',
         subscription_starts_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         subscription_ends_at TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+      ALTER TABLE stores ADD COLUMN IF NOT EXISTS is_active INT DEFAULT 1;
       ALTER TABLE stores ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(50) DEFAULT 'active';
       ALTER TABLE stores ADD COLUMN IF NOT EXISTS subscription_starts_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
       ALTER TABLE stores ADD COLUMN IF NOT EXISTS subscription_ends_at TIMESTAMP;
@@ -57,7 +61,144 @@ async function syncPgTables(pool: any) {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+      ALTER TABLE plans ADD COLUMN IF NOT EXISTS is_active INT DEFAULT 1;
       ALTER TABLE plans ADD COLUMN IF NOT EXISTS duration_days INT DEFAULT 30;
+
+      CREATE TABLE IF NOT EXISTS categories (
+        id SERIAL PRIMARY KEY,
+        store_id INT NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        slug VARCHAR(255) NOT NULL,
+        image VARCHAR(255),
+        sort_order INT DEFAULT 0,
+        is_active INT DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      ALTER TABLE categories ADD COLUMN IF NOT EXISTS is_active INT DEFAULT 1;
+      ALTER TABLE categories ADD COLUMN IF NOT EXISTS sort_order INT DEFAULT 0;
+
+      CREATE TABLE IF NOT EXISTS products (
+        id SERIAL PRIMARY KEY,
+        store_id INT NOT NULL,
+        category_id INT,
+        name VARCHAR(255) NOT NULL,
+        slug VARCHAR(255) NOT NULL,
+        description TEXT,
+        price DECIMAL(10,2) DEFAULT 0,
+        sale_price DECIMAL(10,2),
+        cost_price DECIMAL(10,2),
+        sku VARCHAR(100),
+        barcode VARCHAR(100),
+        stock INT DEFAULT 0,
+        image VARCHAR(255),
+        gallery TEXT,
+        status VARCHAR(50) DEFAULT 'active',
+        is_active INT DEFAULT 1,
+        is_featured INT DEFAULT 0,
+        featured INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS is_active INT DEFAULT 1;
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS is_featured INT DEFAULT 0;
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS featured INT DEFAULT 0;
+
+      CREATE TABLE IF NOT EXISTS product_images (
+        id SERIAL PRIMARY KEY,
+        product_id INT NOT NULL,
+        url VARCHAR(255) NOT NULL,
+        sort_order INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS coupons (
+        id SERIAL PRIMARY KEY,
+        store_id INT NOT NULL,
+        code VARCHAR(50) NOT NULL,
+        type VARCHAR(20) DEFAULT 'fixed',
+        value DECIMAL(10,2) DEFAULT 0,
+        min_order DECIMAL(10,2) DEFAULT 0,
+        max_uses INT DEFAULT 0,
+        uses_count INT DEFAULT 0,
+        expires_at TIMESTAMP,
+        status VARCHAR(50) DEFAULT 'active',
+        is_active INT DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      ALTER TABLE coupons ADD COLUMN IF NOT EXISTS is_active INT DEFAULT 1;
+
+      CREATE TABLE IF NOT EXISTS flash_sales (
+        id SERIAL PRIMARY KEY,
+        store_id INT NOT NULL,
+        title VARCHAR(255),
+        discount_percentage DECIMAL(5,2) DEFAULT 0,
+        starts_at TIMESTAMP,
+        ends_at TIMESTAMP,
+        status VARCHAR(50) DEFAULT 'active',
+        is_active INT DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      ALTER TABLE flash_sales ADD COLUMN IF NOT EXISTS is_active INT DEFAULT 1;
+
+      CREATE TABLE IF NOT EXISTS flash_sale_products (
+        id SERIAL PRIMARY KEY,
+        flash_sale_id INT NOT NULL,
+        product_id INT NOT NULL,
+        discount_price DECIMAL(10,2)
+      );
+
+      CREATE TABLE IF NOT EXISTS store_staff (
+        id SERIAL PRIMARY KEY,
+        store_id INT NOT NULL,
+        user_id INT NOT NULL,
+        role VARCHAR(50) DEFAULT 'staff',
+        permissions TEXT,
+        is_active INT DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS customers (
+        id SERIAL PRIMARY KEY,
+        store_id INT NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        email VARCHAR(255),
+        phone VARCHAR(50),
+        city VARCHAR(100),
+        address TEXT,
+        total_orders INT DEFAULT 0,
+        total_spent DECIMAL(10,2) DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS orders (
+        id SERIAL PRIMARY KEY,
+        store_id INT NOT NULL,
+        order_number VARCHAR(100) NOT NULL,
+        customer_name VARCHAR(255),
+        customer_phone VARCHAR(50),
+        customer_city VARCHAR(100),
+        customer_address TEXT,
+        subtotal DECIMAL(10,2) DEFAULT 0,
+        shipping_cost DECIMAL(10,2) DEFAULT 0,
+        discount DECIMAL(10,2) DEFAULT 0,
+        total DECIMAL(10,2) DEFAULT 0,
+        status VARCHAR(50) DEFAULT 'pending',
+        payment_method VARCHAR(50) DEFAULT 'cod',
+        payment_status VARCHAR(50) DEFAULT 'pending',
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS order_items (
+        id SERIAL PRIMARY KEY,
+        order_id INT NOT NULL,
+        product_id INT,
+        product_name VARCHAR(255),
+        price DECIMAL(10,2) DEFAULT 0,
+        quantity INT DEFAULT 1,
+        total DECIMAL(10,2) DEFAULT 0
+      );
 
       CREATE TABLE IF NOT EXISTS platform_settings (
         id SERIAL PRIMARY KEY,
@@ -98,7 +239,7 @@ async function syncPgTables(pool: any) {
 }
 
 async function syncPgSequences(pool: any) {
-  const tables = ['users', 'stores', 'products', 'orders', 'categories', 'plans', 'coupons', 'order_items'];
+  const tables = ['users', 'stores', 'products', 'orders', 'categories', 'plans', 'coupons', 'order_items', 'flash_sales', 'store_staff'];
   for (const table of tables) {
     try {
       await pool.query(`
@@ -134,6 +275,16 @@ export class PgD1Database {
     const pool = this.pool || getPgPool();
 
     let pgSql = sql
+      .replace(/strftime\('([^']+)',\s*([a-zA-Z0-9_\.]+)\)/gi, (match, fmt, col) => {
+        let pgFmt = fmt
+          .replace('%Y', 'YYYY')
+          .replace('%m', 'MM')
+          .replace('%d', 'DD')
+          .replace('%H', 'HH24')
+          .replace('%M', 'MI')
+          .replace('%S', 'SS');
+        return `TO_CHAR(${col}, '${pgFmt}')`;
+      })
       .replace(/datetime\('now',\s*'\+([0-9]+)\s*days?'\)/gi, "CURRENT_TIMESTAMP + INTERVAL '$1 days'")
       .replace(/datetime\('now',\s*'-([0-9]+)\s*hours?'\)/gi, "CURRENT_TIMESTAMP - INTERVAL '$1 hours'")
       .replace(/datetime\('now',\s*'\+([0-9]+)\s*months?'\)/gi, "CURRENT_TIMESTAMP + INTERVAL '$1 months'")
@@ -154,31 +305,36 @@ export class PgD1Database {
     }
 
     const createStatement = (params: any[] = []) => {
+      const cleanParams = (params || []).map((p: any) => {
+        if (typeof p === 'boolean') return p ? 1 : 0;
+        return p;
+      });
+
       return {
         bind(...nextParams: any[]) {
           return createStatement([...params, ...nextParams]);
         },
         async first() {
           try {
-            const res = await pool.query(pgSql, params);
+            const res = await pool.query(pgSql, cleanParams);
             return res.rows[0] || null;
           } catch (err) {
-            console.error('Pg Query Error (first):', err, 'SQL:', pgSql, 'Params:', params);
+            console.error('Pg Query Error (first):', err, 'SQL:', pgSql, 'Params:', cleanParams);
             throw err;
           }
         },
         async all() {
           try {
-            const res = await pool.query(pgSql, params);
+            const res = await pool.query(pgSql, cleanParams);
             return { results: res.rows };
           } catch (err) {
-            console.error('Pg Query Error (all):', err, 'SQL:', pgSql, 'Params:', params);
+            console.error('Pg Query Error (all):', err, 'SQL:', pgSql, 'Params:', cleanParams);
             throw err;
           }
         },
         async run() {
           try {
-            const res = await pool.query(pgSql, params);
+            const res = await pool.query(pgSql, cleanParams);
             const lastRowId = res.rows && res.rows[0] && res.rows[0].id ? res.rows[0].id : 0;
             return { 
               meta: { 
@@ -197,7 +353,7 @@ export class PgD1Database {
                     COALESCE((SELECT MAX(id) FROM "${tableName}"), 1)
                   );
                 `);
-                const retryRes = await pool.query(pgSql, params);
+                const retryRes = await pool.query(pgSql, cleanParams);
                 const lastRowId = retryRes.rows && retryRes.rows[0] && retryRes.rows[0].id ? retryRes.rows[0].id : 0;
                 return {
                   meta: {
@@ -207,11 +363,11 @@ export class PgD1Database {
                   results: retryRes.rows || []
                 };
               } catch (retryErr) {
-                console.error('Pg Query Error (retry failed):', retryErr, 'SQL:', pgSql, 'Params:', params);
+                console.error('Pg Query Error (retry failed):', retryErr, 'SQL:', pgSql, 'Params:', cleanParams);
                 throw retryErr;
               }
             }
-            console.error('Pg Query Error (run):', err, 'SQL:', pgSql, 'Params:', params);
+            console.error('Pg Query Error (run):', err, 'SQL:', pgSql, 'Params:', cleanParams);
             throw err;
           }
         }
