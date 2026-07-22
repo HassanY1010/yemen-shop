@@ -252,14 +252,18 @@ async function syncPgTables(pool: any) {
 
       CREATE TABLE IF NOT EXISTS system_notifications (
         id SERIAL PRIMARY KEY,
+        user_type VARCHAR(50) DEFAULT 'merchant',
         store_id INT,
         user_id INT,
         title VARCHAR(255) NOT NULL,
         message TEXT NOT NULL,
+        link VARCHAR(255) DEFAULT '',
         type VARCHAR(50) DEFAULT 'info',
         is_read INT DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+      ALTER TABLE system_notifications ADD COLUMN IF NOT EXISTS user_type VARCHAR(50) DEFAULT 'merchant';
+      ALTER TABLE system_notifications ADD COLUMN IF NOT EXISTS link VARCHAR(255) DEFAULT '';
     `);
   } catch (e) {
     console.error('Pg Table Sync Error:', e);
