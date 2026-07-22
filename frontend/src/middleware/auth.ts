@@ -3,6 +3,7 @@
 // ============================================
 import { Context, Next } from 'hono';
 import { Bindings, Variables, User, Store } from '../types/index';
+import { getPgPool, PgD1Database } from '../utils/db';
 
 type AppContext = Context<{ Bindings: Bindings; Variables: Variables }>;
 
@@ -21,18 +22,10 @@ export async function authMiddleware(c: AppContext, next: Next) {
   }
 
   try {
-    if (c.env && c.env.DB) {
+    const db: any = (c.env && c.env.DB) ? c.env.DB : (getPgPool() ? new PgD1Database(getPgPool()) : null);
+    if (db) {
       try {
-        await c.env.DB.prepare(`
-          CREATE TABLE IF NOT EXISTS sessions (
-            token VARCHAR(255) PRIMARY KEY,
-            user_id INT NOT NULL,
-            store_id INT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-          )
-        `).run();
-
-        const session = await c.env.DB.prepare(
+        const session = await db.prepare(
           `SELECT s.user_id, s.store_id, u.name, u.email, u.role, u.avatar, u.is_active
            FROM sessions s
            JOIN users u ON u.id = s.user_id

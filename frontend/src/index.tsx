@@ -25,6 +25,16 @@ import landingRoutes from './routes/landing'
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
+// ─── Logging & Request Tracker Middleware ─────────────────────
+app.use('*', async (c, next) => {
+  const method = c.req.method;
+  const path = c.req.path;
+  console.log(`[REQUEST] ${method} ${path}`);
+  await next();
+  const resStatus = (c.res && typeof c.res.status === 'number' && c.res.status >= 200 && c.res.status <= 599) ? c.res.status : 200;
+  console.log(`[RESPONSE] ${method} ${path} -> ${resStatus}`);
+});
+
 app.use('*', async (c, next) => {
   const pgPool = getPgPool();
   if (pgPool) {
@@ -103,9 +113,13 @@ app.use('*', cors({ origin: '*', credentials: true }))
 app.use('*', authMiddleware)
 app.use('*', tenantMiddleware)
 
-app.onError((err, c) => {
-  console.error('Hono Error:', err);
-  return c.text(`SERVER ERROR: ${err.message}\n${err.stack}`, 500);
+app.onError((err: any, c) => {
+  console.error('GLOBAL ERROR:', err);
+  const status = (err && typeof err.status === 'number' && err.status >= 200 && err.status <= 599) ? err.status : 500;
+  return c.json({
+    success: false,
+    error: err?.message || 'Internal Server Error'
+  }, status);
 })
 
 // Serve static files
