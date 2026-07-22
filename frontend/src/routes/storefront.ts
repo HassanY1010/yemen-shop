@@ -934,7 +934,7 @@ store.get('/:slug', async (c) => {
             ${hasDiscount ? `<span class="text-mute line-through text-xs mr-1">${formatCurrency(product.price, storeData.currency)}</span>` : ''}
           </div>
           ${product.stock > 0 ? `
-          <button onclick="event.stopPropagation(); addToCart(${product.id}, '${product.name.replace(/'/g, "\\'")}', ${price}, '${getImageUrl(product.image || product.primary_image, DEFAULT_PRODUCT_IMAGE)}')"
+          <button onclick="event.stopPropagation(); addToCart(${product.id}, '${product.name.replace(/'/g, "\\'")}', ${price}, '${(product.image || product.primary_image || '').replace(/'/g, "\\'")}')"
             class="w-9 h-9 rounded-xl text-white flex items-center justify-center hover:opacity-80 transition-all text-sm shadow"
             style="background: ${primary};">
             <i class="fas fa-plus"></i>
@@ -1191,7 +1191,7 @@ store.get('/:slug/products', async (c) => {
                     ${hasDiscount ? `<span class="text-mute line-through text-xs mr-1">${formatCurrency(p.price, storeData.currency)}</span>` : ''}
                   </div>
                   ${p.stock > 0 ? `
-                  <button onclick="event.stopPropagation(); addToCart(${p.id}, '${p.name.replace(/'/g, "\\'")}', ${price}, '${getImageUrl(p.image || p.primary_image, DEFAULT_PRODUCT_IMAGE)}')"
+                  <button onclick="event.stopPropagation(); addToCart(${p.id}, '${p.name.replace(/'/g, "\\'")}', ${price}, '${(p.image || p.primary_image || '').replace(/'/g, "\\'")}')"
                     class="w-9 h-9 rounded-xl text-white flex items-center justify-center hover:opacity-80 transition-all text-sm shadow"
                     style="background: ${primary};">
                     <i class="fas fa-plus"></i>
@@ -1722,7 +1722,7 @@ store.get('/:slug/products/:id', async (c) => {
       });
 
       for (let i = 0; i < qty; i++) {
-        addToCart(${product.id}, ${JSON.stringify(product.name)}, finalPrice, ${JSON.stringify(getImageUrl(mainImage, DEFAULT_PRODUCT_IMAGE))}, variantStr);
+        addToCart(${product.id}, ${JSON.stringify(product.name)}, finalPrice, ${JSON.stringify(mainImage || '')}, variantStr);
       }
     }
     window.addToCartMultiple = addToCartMultiple;
