@@ -744,8 +744,8 @@ app.post('/api/store/:slug/orders', async (c) => {
   const token = cookies[`customer_token_${storeData.id}`];
   if (token) {
     const session = await c.env.DB.prepare(
-      "SELECT user_id FROM sessions WHERE token = ? AND store_id = ? AND expires_at > datetime('now')"
-    ).bind(token, storeData.id).first() as any;
+      'SELECT user_id FROM sessions WHERE token = ? AND store_id = ? AND (expires_at IS NULL OR expires_at > ?)'
+    ).bind(token, storeData.id, new Date().toISOString()).first() as any;
     if (session) {
       customerId = session.user_id;
       await c.env.DB.prepare(
@@ -754,21 +754,24 @@ app.post('/api/store/:slug/orders', async (c) => {
     }
   }
 
-  if (!customerId && data.customer_phone) {
+  if (!customerId && (data.customer_phone || data.customer_email)) {
+    const cleanPhone = (data.customer_phone || '').trim();
+    const cleanEmail = (data.customer_email || '').trim().toLowerCase();
+    
     let customer = await c.env.DB.prepare(
-      'SELECT id FROM customers WHERE store_id = ? AND phone = ?'
-    ).bind(storeData.id, data.customer_phone).first() as any
+      'SELECT id FROM customers WHERE store_id = ? AND ((phone = ? AND phone != \'\') OR (email = ? AND email != \'\'))'
+    ).bind(storeData.id, cleanPhone, cleanEmail).first() as any;
 
     if (!customer) {
       const r = await c.env.DB.prepare(
         'INSERT INTO customers (store_id, name, email, phone, city) VALUES (?, ?, ?, ?, ?)'
-      ).bind(storeData.id, data.customer_name, data.customer_email || null, data.customer_phone, data.shipping_city || null).run()
-      customerId = r.meta.last_row_id
+      ).bind(storeData.id, data.customer_name, cleanEmail || null, cleanPhone || null, data.shipping_city || null).run();
+      customerId = r.meta.last_row_id;
     } else {
-      customerId = customer.id
+      customerId = customer.id;
       await c.env.DB.prepare(
         'UPDATE customers SET total_orders = total_orders + 1, total_spent = total_spent + ? WHERE id = ?'
-      ).bind(subtotal, customerId).run()
+      ).bind(subtotal, customerId).run();
     }
   }
 

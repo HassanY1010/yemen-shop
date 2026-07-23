@@ -3010,18 +3010,30 @@ store.get('/:slug/account', async (c) => {
   const primary = storeData.primary_color || '#4F46E5';
   const secondary = storeData.secondary_color || '#818CF8';
 
-  // Fetch customer orders
-  const orders = await c.env.DB.prepare(
-    'SELECT * FROM orders WHERE customer_id = ? AND store_id = ? ORDER BY created_at DESC'
-  ).bind(customer.id, storeData.id).all();
+  // Fetch ALL customer orders (matching customer_id OR phone OR email)
+  const cleanPhone = (customer.phone || '').trim();
+  const cleanEmail = (customer.email || '').trim().toLowerCase();
+
+  const orders = await c.env.DB.prepare(`
+    SELECT * FROM orders 
+    WHERE store_id = ? 
+      AND (
+        customer_id = ? 
+        OR (customer_phone IS NOT NULL AND customer_phone != '' AND customer_phone = ?)
+        OR (customer_email IS NOT NULL AND customer_email != '' AND customer_email = ?)
+      )
+    ORDER BY created_at DESC
+  `).bind(storeData.id, customer.id, cleanPhone, cleanEmail).all();
 
   const ordersList = orders.results as any[];
 
   const statusMap: Record<string, { label: string; cls: string }> = {
-    pending: { label: 'قيد الانتظار', cls: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' },
-    processing: { label: 'قيد التجهيز', cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
-    completed: { label: 'مكتمل', cls: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
-    cancelled: { label: 'ملغي', cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' }
+    pending: { label: 'قيد الانتظار ⏳', cls: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300' },
+    processing: { label: 'قيد التجهيز ⚙️', cls: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300' },
+    shipped: { label: 'تم الشحن 🚚', cls: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300' },
+    completed: { label: 'مكتمل ✅', cls: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300' },
+    cancelled: { label: 'ملغي ❌', cls: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300' },
+    refunded: { label: 'مسترد ↩️', cls: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300' }
   };
 
   const accountHtml = `
@@ -3040,7 +3052,7 @@ store.get('/:slug/account', async (c) => {
           
           <div class="border-t border-std mt-5 pt-4 space-y-1">
             <button onclick="showTab('orders')" id="btn-orders" class="w-full text-right px-4 py-2 rounded-xl text-sm font-semibold transition-all bg-primary-50 text-primary-600" style="background:${primary}10; color:${primary};">
-              <i class="fas fa-shopping-bag ml-2"></i> طلباتي السابقة
+              <i class="fas fa-shopping-bag ml-2"></i> طلباتي السابقة (${ordersList.length})
             </button>
             <button onclick="showTab('address')" id="btn-address" class="w-full text-right px-4 py-2 rounded-xl text-sm font-semibold transition-all text-sub hover:bg-page">
               <i class="fas fa-map-marker-alt ml-2"></i> عنوان التوصيل
@@ -3060,37 +3072,53 @@ store.get('/:slug/account', async (c) => {
         
         <!-- Panel 1: Orders -->
         <div id="panel-orders" class="bg-card rounded-2xl border border-std p-6 shadow-sm">
-          <h3 class="font-bold text-main text-lg mb-5"><i class="fas fa-shopping-bag text-primary-500" style="color:${primary};"></i> طلباتي السابقة</h3>
+          <div class="flex items-center justify-between mb-5">
+            <h3 class="font-bold text-main text-lg"><i class="fas fa-shopping-bag text-primary-500 ml-2" style="color:${primary};"></i> قائمة الطلبات (${ordersList.length})</h3>
+          </div>
           
           ${ordersList.length === 0 ? `
             <div class="text-center py-12 text-mute">
               <i class="fas fa-shopping-bag text-5xl mb-3 block text-gray-200"></i>
               <p class="text-sm">لم تقم بإجراء أي طلبات حتى الآن</p>
-              <a href="/store/${slug}/products" class="inline-block mt-4 text-white font-semibold px-6 py-2.5 rounded-xl text-xs" style="background:${primary}">تصفح المنتجات</a>
+              <a href="/store/${slug}/products" class="inline-block mt-4 text-white font-semibold px-6 py-2.5 rounded-xl text-xs shadow-md" style="background:${primary}">تصفح المنتجات</a>
             </div>
           ` : `
             <div class="space-y-4">
               ${ordersList.map(o => {
                 const badge = statusMap[o.status] || { label: o.status, cls: 'bg-gray-100 text-sub' };
+                const orderPhone = o.customer_phone || customer.phone || '';
+                const trackUrl = `/store/${slug}/track?order=${encodeURIComponent(o.order_number)}&phone=${encodeURIComponent(orderPhone)}`;
+                const formattedDate = o.created_at ? new Date(o.created_at).toLocaleDateString('ar-SA', { year: 'numeric', month: 'long', day: 'numeric' }) : '—';
+
                 return `
-                <div class="border border-std rounded-xl p-4 flex flex-col sm:flex-row justify-between sm:items-center gap-3 hover:border-std transition-colors">
-                  <div>
-                    <span class="text-xs text-mute">رقم الطلب</span>
-                    <h4 class="font-bold text-main text-sm mt-0.5">${o.order_number}</h4>
-                    <p class="text-xs text-mute mt-1">تاريخ الطلب: ${new Date(o.created_at || Date.now()).toLocaleDateString('ar-SA')}</p>
+                <div class="border border-std rounded-2xl p-5 flex flex-col sm:flex-row justify-between sm:items-center gap-4 hover:border-primary-300 dark:hover:border-primary-800 transition-all bg-card shadow-sm">
+                  <div class="space-y-1">
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs font-semibold text-mute">رقم الطلب:</span>
+                      <h4 class="font-black text-main text-base font-mono">#${o.order_number}</h4>
+                    </div>
+                    <p class="text-xs text-mute flex items-center gap-1.5">
+                      <i class="far fa-calendar-alt"></i>
+                      <span>التاريخ: ${formattedDate}</span>
+                    </p>
                   </div>
-                  <div>
-                    <span class="text-xs text-mute block mb-1">الحالة</span>
-                    <span class="px-2.5 py-1 rounded-full text-xs font-semibold ${badge.cls}">${badge.label}</span>
+
+                  <div class="flex sm:flex-col items-start sm:items-center gap-1">
+                    <span class="text-xs text-mute hidden sm:block">الحالة:</span>
+                    <span class="px-3 py-1 rounded-full text-xs font-bold ${badge.cls}">${badge.label}</span>
                   </div>
+
                   <div class="sm:text-left">
-                    <span class="text-xs text-mute block sm:text-left">المبلغ الإجمالي</span>
-                    <span class="font-black text-sm text-main" style="color:${primary}">${o.total.toLocaleString('ar-SA')} ${o.currency}</span>
+                    <span class="text-xs text-mute block">المبلغ الإجمالي</span>
+                    <span class="font-black text-base text-main" style="color:${primary}">${(o.total || 0).toLocaleString('ar-SA')} ${o.currency || 'ريال'}</span>
                   </div>
+
                   <div class="flex items-center gap-2 mt-2 sm:mt-0">
-                    <a href="/store/${slug}/track?order=${o.order_number}&phone=${customer.phone}"
-                      class="px-4 py-2 border border-std hover:bg-page text-sub rounded-xl text-xs font-semibold text-center flex-1 sm:flex-none">
-                      تتبع
+                    <a href="${trackUrl}"
+                      class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+                      style="background:${primary}">
+                      <i class="fas fa-search-location"></i>
+                      <span>تتبع الطلب</span>
                     </a>
                   </div>
                 </div>
