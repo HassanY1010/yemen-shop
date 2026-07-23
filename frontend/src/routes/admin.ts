@@ -128,7 +128,9 @@ admin.get('/', async (c) => {
       <span class="font-bold text-main">${p.count || 0}</span>
     </div>`).join('');
 
-  const recentStoresHtml = (recentStores.results as any[]).map((store: any) => `
+  const recentStoresHtml = (recentStores.results as any[]).map((store: any) => {
+    const isStoreActive = store.status === 'active' && (store.is_active === 1 || store.is_active === true || store.is_active === undefined || store.is_active === null);
+    return `
     <div class="flex items-center justify-between px-6 py-3.5 hover:bg-gray-50 dark:hover:bg-slate-800/40 transition-colors">
       <div class="flex items-center gap-3">
         <div class="w-9 h-9 rounded-xl bg-primary-50 text-primary-600 flex items-center justify-center font-bold text-sm flex-shrink-0">${store.name[0]}</div>
@@ -139,9 +141,10 @@ admin.get('/', async (c) => {
       </div>
       <div class="flex items-center gap-2">
         <span class="text-xs px-2 py-0.5 rounded-full bg-primary-50 text-primary-600 font-medium">${store.plan_name}</span>
-        <span class="text-xs px-2 py-0.5 rounded-full font-medium ${store.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${store.status === 'active' ? 'نشط' : 'موقوف'}</span>
+        <span class="text-xs px-2 py-0.5 rounded-full font-medium ${isStoreActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${isStoreActive ? 'نشط' : 'موقوف'}</span>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
   const recentOrdersHtml = (recentOrders.results as any[]).map((order: any) => `
     <div class="flex items-center justify-between px-6 py-3.5 hover:bg-gray-50 dark:hover:bg-slate-800/40 transition-colors">
@@ -242,8 +245,8 @@ admin.get('/stores', async (c) => {
   let where = 'WHERE 1=1';
   const params: any[] = [];
   if (status) { 
-    if (status === 'active') where += " AND (s.status = 'active' OR s.is_active = 1)";
-    else where += " AND (s.status != 'active' AND (s.is_active = 0 OR s.is_active IS NULL))";
+    if (status === 'active') where += " AND (s.status = 'active' AND (s.is_active = 1 OR s.is_active IS NULL))";
+    else where += " AND (s.status != 'active' OR s.is_active = 0)";
   }
   if (search) { where += ' AND (s.name LIKE ? OR s.slug LIKE ? OR u.name LIKE ? OR u.email LIKE ?)'; params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`); }
   if (planFilter) { where += ' AND p.slug = ?'; params.push(planFilter); }
@@ -257,8 +260,8 @@ admin.get('/stores', async (c) => {
     `).bind(...params).all(),
     c.env.DB.prepare(`SELECT COUNT(*) as count FROM stores s LEFT JOIN users u ON s.user_id = u.id LEFT JOIN plans p ON s.plan_id = p.id ${where}`).bind(...params).first() as Promise<any>,
     c.env.DB.prepare('SELECT * FROM plans ORDER BY price ASC').all(),
-    c.env.DB.prepare("SELECT COUNT(*) as count FROM stores WHERE status = 'active' OR is_active = 1").first() as Promise<any>,
-    c.env.DB.prepare("SELECT COUNT(*) as count FROM stores WHERE status != 'active' AND (is_active = 0 OR is_active IS NULL)").first() as Promise<any>,
+    c.env.DB.prepare("SELECT COUNT(*) as count FROM stores WHERE status = 'active' AND (is_active = 1 OR is_active IS NULL)").first() as Promise<any>,
+    c.env.DB.prepare("SELECT COUNT(*) as count FROM stores WHERE status != 'active' OR is_active = 0").first() as Promise<any>,
   ]);
 
   const total = totalCount?.count || 0;
@@ -273,7 +276,9 @@ admin.get('/stores', async (c) => {
 
   const storeRows = (stores.results as any[]).length === 0
     ? '<tr><td colspan="8" class="px-5 py-12 text-center text-mute">لا توجد متاجر مطابقة</td></tr>'
-    : (stores.results as any[]).map((store: any) => `
+    : (stores.results as any[]).map((store: any) => {
+        const isStoreActive = store.status === 'active' && (store.is_active === 1 || store.is_active === true || store.is_active === undefined || store.is_active === null);
+        return `
       <tr class="border-t border-std hover:bg-gray-50 dark:hover:bg-slate-800/30 transition-colors">
         <td class="px-5 py-4">
           <div class="flex items-center gap-3">
@@ -288,18 +293,19 @@ admin.get('/stores', async (c) => {
         <td class="px-5 py-4"><span class="px-2.5 py-1 rounded-full text-xs font-semibold ${planBadge[store.plan_slug] || 'bg-gray-100 text-gray-600'}">${store.plan_name}</span></td>
         <td class="px-5 py-4 text-center font-bold text-main text-sm">${store.orders_count}</td>
         <td class="px-5 py-4 font-bold text-main text-sm">${formatCurrency(store.total_sales || 0)}</td>
-        <td class="px-5 py-4"><span class="px-2.5 py-1 rounded-full text-xs font-semibold ${(store.status === 'active' || store.is_active === 1 || store.is_active === true) ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${(store.status === 'active' || store.is_active === 1 || store.is_active === true) ? 'نشط' : 'موقوف'}</span></td>
+        <td class="px-5 py-4"><span class="px-2.5 py-1 rounded-full text-xs font-semibold ${isStoreActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${isStoreActive ? 'نشط' : 'موقوف'}</span></td>
         <td class="px-5 py-4 text-mute text-xs">${formatDate(store.created_at)}</td>
         <td class="px-5 py-4">
           <div class="flex items-center gap-2">
             <a href="/admin/stores/${store.id}" class="text-xs px-2.5 py-1 bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100 font-medium">تفاصيل</a>
-            <button onclick="toggleStore(${store.id}, '${store.status}')"
-              class="text-xs px-2.5 py-1 rounded-lg font-medium transition-colors ${(store.status === 'active' || store.is_active === 1 || store.is_active === true) ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'}">
-              ${(store.status === 'active' || store.is_active === 1 || store.is_active === true) ? 'إيقاف المتجر' : 'تشغيل المتجر'}
+            <button onclick="toggleStore(${store.id}, '${store.status || 'suspended'}', ${store.is_active ?? 1})"
+              class="text-xs px-2.5 py-1 rounded-lg font-medium transition-colors ${isStoreActive ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'}">
+              ${isStoreActive ? 'إيقاف المتجر' : 'تشغيل المتجر'}
             </button>
           </div>
         </td>
-      </tr>`).join('');
+      </tr>`;
+      }).join('');
 
   const pagination = totalPages > 1 ? `
     <div class="flex items-center justify-between px-5 py-4 border-t border-std">
@@ -358,14 +364,19 @@ admin.get('/stores', async (c) => {
   </div>
   `, user, undefined, 'stores', `
   <script>
-    async function toggleStore(storeId, currentStatus) {
-      const isCurrentlyActive = currentStatus === 'active' || currentStatus === '1';
+    async function toggleStore(storeId, currentStatus, currentIsActive) {
+      const isCurrentlyActive = currentStatus === 'active' && (currentIsActive === 1 || currentIsActive === true || currentIsActive === '1' || currentIsActive === undefined || currentIsActive === null);
       const newStatus = isCurrentlyActive ? 'suspended' : 'active';
-      if (!confirm(newStatus === 'suspended' ? 'هل تريد إيقاف هذا المتجر؟' : 'هل تريد تشغيل هذا المتجر؟')) return;
+      const newIsActive = isCurrentlyActive ? 0 : 1;
+      if (!confirm(isCurrentlyActive ? 'هل تريد إيقاف هذا المتجر؟' : 'هل تريد تشغيل هذا المتجر؟')) return;
       try {
-        await axios.put('/api/admin/stores/' + storeId + '/status', { status: newStatus, is_active: newStatus === 'active' ? 1 : 0 });
-        showToast(newStatus === 'suspended' ? 'تم إيقاف المتجر بنجاح' : 'تم تشغيل المتجر بنجاح', 'success');
-        setTimeout(() => location.reload(), 600);
+        const res = await axios.put('/api/admin/stores/' + storeId + '/status', { status: newStatus, is_active: newIsActive });
+        if (res.data && res.data.success !== false) {
+          showToast(newStatus === 'suspended' ? 'تم إيقاف المتجر بنجاح' : 'تم تشغيل المتجر بنجاح', 'success');
+          setTimeout(() => location.reload(), 500);
+        } else {
+          showToast(res.data?.message || res.data?.error || 'خطأ في تحديث حالة المتجر', 'error');
+        }
       } catch(err) {
         showToast(err.response?.data?.error || err.response?.data?.message || 'خطأ في تحديث حالة المتجر', 'error');
       }
@@ -447,6 +458,8 @@ admin.get('/stores/:id', async (c) => {
       <span class="font-black text-primary-600">${p.price === 0 ? 'مجاني' : p.price + ' ر.س'}</span>
     </button>`).join('');
 
+  const isStoreActive = storeData.status === 'active' && (storeData.is_active === 1 || storeData.is_active === true || storeData.is_active === undefined || storeData.is_active === null);
+
   return c.html(dashboardLayout(storeData.name + ' - تفاصيل', `
   <div class="mb-5">
     <a href="/admin/stores" class="inline-flex items-center gap-2 text-sub hover:text-primary-600 text-sm font-medium">
@@ -460,7 +473,7 @@ admin.get('/stores/:id', async (c) => {
         <div>
           <div class="flex items-center gap-2 flex-wrap">
             <h1 class="text-xl font-black text-main">${storeData.name}</h1>
-            <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold ${(storeData.status === 'active' || storeData.is_active === 1 || storeData.is_active === true) ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${(storeData.status === 'active' || storeData.is_active === 1 || storeData.is_active === true) ? 'نشط' : 'موقوف'}</span>
+            <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold ${isStoreActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${isStoreActive ? 'نشط' : 'موقوف'}</span>
           </div>
           <p class="text-mute text-sm mt-0.5">/store/${storeData.slug}</p>
           <p class="text-sub text-xs mt-1">${storeData.owner_name} · ${storeData.owner_email}</p>
@@ -474,9 +487,9 @@ admin.get('/stores/:id', async (c) => {
           class="px-4 py-2 bg-primary-50 text-primary-600 rounded-xl text-sm font-semibold hover:bg-primary-100 transition-colors">
           <i class="fas fa-exchange-alt ml-1"></i>تغيير الباقة
         </button>
-        <button onclick="toggleStoreStatus(${storeData.id}, '${storeData.status}')"
-          class="px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${(storeData.status === 'active' || storeData.is_active === 1 || storeData.is_active === true) ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'}">
-          ${(storeData.status === 'active' || storeData.is_active === 1 || storeData.is_active === true) ? 'إيقاف المتجر' : 'تشغيل المتجر'}
+        <button onclick="toggleStoreStatus(${storeData.id}, '${storeData.status || 'suspended'}', ${storeData.is_active ?? 1})"
+          class="px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${isStoreActive ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'}">
+          ${isStoreActive ? 'إيقاف المتجر' : 'تشغيل المتجر'}
         </button>
       </div>
     </div>
@@ -549,14 +562,19 @@ admin.get('/stores/:id', async (c) => {
       }
     }
     window.changePlan = changePlan;
-    async function toggleStoreStatus(storeId, currentStatus) {
-      const isCurrentlyActive = currentStatus === 'active' || currentStatus === '1';
+    async function toggleStoreStatus(storeId, currentStatus, currentIsActive) {
+      const isCurrentlyActive = currentStatus === 'active' && (currentIsActive === 1 || currentIsActive === true || currentIsActive === '1' || currentIsActive === undefined || currentIsActive === null);
       const newStatus = isCurrentlyActive ? 'suspended' : 'active';
-      if (!confirm(newStatus === 'suspended' ? 'هل تريد إيقاف هذا المتجر؟' : 'هل تريد تشغيل هذا المتجر؟')) return;
+      const newIsActive = isCurrentlyActive ? 0 : 1;
+      if (!confirm(isCurrentlyActive ? 'هل تريد إيقاف هذا المتجر؟' : 'هل تريد تشغيل هذا المتجر؟')) return;
       try {
-        await axios.put('/api/admin/stores/' + storeId + '/status', { status: newStatus, is_active: newStatus === 'active' ? 1 : 0 });
-        showToast(newStatus === 'suspended' ? 'تم إيقاف المتجر بنجاح' : 'تم تشغيل المتجر بنجاح', 'success');
-        setTimeout(() => location.reload(), 600);
+        const res = await axios.put('/api/admin/stores/' + storeId + '/status', { status: newStatus, is_active: newIsActive });
+        if (res.data && res.data.success !== false) {
+          showToast(newStatus === 'suspended' ? 'تم إيقاف المتجر بنجاح' : 'تم تشغيل المتجر بنجاح', 'success');
+          setTimeout(() => location.reload(), 500);
+        } else {
+          showToast(res.data?.message || res.data?.error || 'خطأ في تحديث حالة المتجر', 'error');
+        }
       } catch(err) {
         showToast(err.response?.data?.error || err.response?.data?.message || 'خطأ في تحديث حالة المتجر', 'error');
       }
@@ -1094,23 +1112,37 @@ admin.put('/stores/:id/status', async (c) => {
   try {
     const body = await c.req.json() as any;
     const storeId = parseInt(c.req.param('id'));
-    let status = body.status;
-    if (!status && body.is_active !== undefined) {
-      status = (body.is_active === 1 || body.is_active === true || body.is_active === '1') ? 'active' : 'suspended';
+    if (isNaN(storeId)) {
+      return c.json({ success: false, error: 'معرف المتجر غير صحيح' }, 400);
     }
-    if (!status && body.active !== undefined) {
-      status = (body.active === true || body.active === 1 || body.active === '1') ? 'active' : 'suspended';
-    }
-    const is_active = (status === 'active' || status === 'enabled') ? 1 : 0;
-    status = is_active === 1 ? 'active' : 'suspended';
 
-    await c.env.DB.prepare(
+    let is_active = 1;
+    if (body.is_active !== undefined) {
+      is_active = (body.is_active === 1 || body.is_active === true || body.is_active === '1') ? 1 : 0;
+    } else if (body.active !== undefined) {
+      is_active = (body.active === true || body.active === 1 || body.active === '1') ? 1 : 0;
+    } else if (body.status) {
+      is_active = (body.status === 'active' || body.status === 'enabled') ? 1 : 0;
+    }
+
+    const status = is_active === 1 ? 'active' : 'suspended';
+
+    const result = await c.env.DB.prepare(
       "UPDATE stores SET status = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
     ).bind(status, is_active, storeId).run();
-    return c.json({ success: true, message: is_active === 1 ? 'تم تشغيل المتجر بنجاح' : 'تم إيقاف المتجر بنجاح', status, is_active });
+
+    console.log(`[ADMIN] Updated store #${storeId} status to '${status}' (is_active=${is_active}), DB result:`, result?.meta);
+
+    return c.json({
+      success: true,
+      message: is_active === 1 ? 'تم تشغيل المتجر بنجاح' : 'تم إيقاف المتجر بنجاح',
+      status,
+      is_active,
+      store_id: storeId
+    });
   } catch (err: any) {
-    console.error('[ADMIN] PUT stores/:id/status error:', err?.message);
-    return c.json({ success: false, error: err?.message }, 500);
+    console.error('[ADMIN] PUT stores/:id/status error:', err?.message || err);
+    return c.json({ success: false, error: err?.message || 'حدث خطأ في الخادم أثناء تحديث حالة المتجر' }, 500);
   }
 });
 

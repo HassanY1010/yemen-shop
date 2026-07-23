@@ -81,6 +81,7 @@ export async function renderExpiredStorePage(c: any, storeData?: any) {
 export function isStoreSubscriptionActive(storeData: any): boolean {
   if (!storeData) return false;
   if (storeData.status !== 'active') return false;
+  if (storeData.is_active === 0 || storeData.is_active === false || storeData.is_active === '0') return false;
   if (storeData.subscription_status === 'expired' || storeData.subscription_status === 'pending_activation') return false;
   if (storeData.subscription_ends_at && new Date(storeData.subscription_ends_at) < new Date()) return false;
   return true;

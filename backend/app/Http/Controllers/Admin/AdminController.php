@@ -66,7 +66,16 @@ class AdminController extends Controller
 
     public function updateStoreStatus(UpdateStoreStatusRequest $request, UpdateStoreStatusAction $action, int $id)
     {
-        return response()->json($action->execute(Store::query()->findOrFail($id), $request->validated('status')));
+        $store = Store::query()->findOrFail($id);
+        $updatedStore = $action->execute($store, $request->validated('status'));
+
+        return response()->json([
+            'success' => true,
+            'message' => $updatedStore->status === 'active' ? 'تم تشغيل المتجر بنجاح' : 'تم إيقاف المتجر بنجاح',
+            'store' => $updatedStore,
+            'status' => $updatedStore->status,
+            'is_active' => $updatedStore->is_active,
+        ]);
     }
 
     public function updateStorePlan(UpdateStorePlanRequest $request, UpdateStorePlanAction $action, int $id)
