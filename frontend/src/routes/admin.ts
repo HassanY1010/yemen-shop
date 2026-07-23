@@ -329,10 +329,13 @@ admin.get('/stores', async (c) => {
       if (!confirm(newStatus === 'suspended' ? 'هل تريد إيقاف هذا المتجر؟' : 'هل تريد تفعيل هذا المتجر؟')) return;
       try {
         await axios.put('/api/admin/stores/' + storeId + '/status', { status: newStatus });
-        showToast('تم تحديث حالة المتجر', 'success');
-        setTimeout(() => location.reload(), 800);
-      } catch(err) { showToast('خطأ في التحديث', 'error'); }
+        showToast(newStatus === 'suspended' ? 'تم إيقاف المتجر بنجاح' : 'تم تفعيل المتجر بنجاح', 'success');
+        setTimeout(() => location.reload(), 600);
+      } catch(err) {
+        showToast(err.response?.data?.error || err.response?.data?.message || 'خطأ في تحديث حالة المتجر', 'error');
+      }
     }
+    window.toggleStore = toggleStore;
   </script>
   `));
 });
@@ -504,10 +507,13 @@ admin.get('/stores/:id', async (c) => {
       if (!confirm(newStatus === 'suspended' ? 'هل تريد إيقاف هذا المتجر؟' : 'هل تريد تفعيل هذا المتجر؟')) return;
       try {
         await axios.put('/api/admin/stores/' + storeId + '/status', { status: newStatus });
-        showToast('تم تحديث الحالة', 'success');
-        setTimeout(() => location.reload(), 800);
-      } catch(err) { showToast('خطأ', 'error'); }
+        showToast(newStatus === 'suspended' ? 'تم إيقاف المتجر بنجاح' : 'تم تفعيل المتجر بنجاح', 'success');
+        setTimeout(() => location.reload(), 600);
+      } catch(err) {
+        showToast(err.response?.data?.error || err.response?.data?.message || 'خطأ في تحديث حالة المتجر', 'error');
+      }
     }
+    window.toggleStoreStatus = toggleStoreStatus;
   </script>
   `));
 });
@@ -1027,8 +1033,11 @@ admin.put('/stores/:id/status', async (c) => {
   try {
     const { status } = await c.req.json() as any;
     const storeId = parseInt(c.req.param('id'));
-    await c.env.DB.prepare('UPDATE stores SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind(status, storeId).run();
-    return c.json({ message: 'تم تحديث حالة المتجر' });
+    const is_active = status === 'active' ? 1 : 0;
+    await c.env.DB.prepare(
+      "UPDATE stores SET status = ?, is_active = ?, updated_at = datetime('now') WHERE id = ?"
+    ).bind(status, is_active, storeId).run();
+    return c.json({ success: true, message: 'تم تحديث حالة المتجر بنجاح', status, is_active });
   } catch (err: any) {
     console.error('[ADMIN] PUT stores/:id/status error:', err?.message);
     return c.json({ success: false, error: err?.message }, 500);

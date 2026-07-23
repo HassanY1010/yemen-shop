@@ -659,9 +659,17 @@ app.use('/api/admin/*', requireAuth)
 app.use('/api/admin/*', requireAdmin)
 app.route('/api/admin', adminRoutes)
 app.put('/api/admin/stores/:id/status', async (c) => {
-  const { status } = await c.req.json() as any
-  await c.env.DB.prepare('UPDATE stores SET status = ? WHERE id = ?').bind(status, parseInt(c.req.param('id'))).run()
-  return c.json({ message: 'تم التحديث' })
+  try {
+    const { status } = await c.req.json() as any
+    const storeId = parseInt(c.req.param('id'))
+    const is_active = status === 'active' ? 1 : 0
+    await c.env.DB.prepare(
+      "UPDATE stores SET status = ?, is_active = ?, updated_at = datetime('now') WHERE id = ?"
+    ).bind(status, is_active, storeId).run()
+    return c.json({ success: true, message: 'تم تحديث حالة المتجر بنجاح', status, is_active })
+  } catch (err: any) {
+    return c.json({ success: false, error: err?.message }, 500)
+  }
 })
 app.put('/api/admin/users/:id/status', async (c) => {
   const { is_active } = await c.req.json() as any
