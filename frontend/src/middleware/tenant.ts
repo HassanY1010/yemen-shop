@@ -93,21 +93,7 @@ export async function ensurePlansSeeded(db: any) {
 
     for (const p of plansData) {
       const existing = await db.prepare("SELECT id FROM plans WHERE slug = ?").bind(p.slug).first();
-      if (existing) {
-        try {
-          await db.prepare(`
-            UPDATE plans
-            SET name = ?, price = ?, duration_days = ?, max_stores = ?, max_products = ?, max_categories = ?, max_orders = ?, max_staff = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE slug = ?
-          `).bind(p.name, p.price, p.duration_days, p.max_stores, p.max_products, p.max_categories, p.max_orders, p.max_staff, p.slug).run();
-        } catch (e) {
-          await db.prepare(`
-            UPDATE plans
-            SET name = ?, price = ?, max_products = ?, max_orders = ?, max_staff = ?
-            WHERE slug = ?
-          `).bind(p.name, p.price, p.max_products, p.max_orders, p.max_staff, p.slug).run();
-        }
-      } else {
+      if (!existing) {
         try {
           await db.prepare(`
             INSERT INTO plans (slug, name, price, duration_days, max_stores, max_products, max_categories, max_orders, max_staff, created_at)

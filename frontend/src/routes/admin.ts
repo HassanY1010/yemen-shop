@@ -968,7 +968,7 @@ admin.get('/plans', async (c) => {
           <div class="flex justify-between py-1"><span>الموظفون</span><span class="font-bold text-main">${plan.max_staff === -1 ? 'غير محدود' : plan.max_staff}</span></div>
         </div>
       </div>
-      <button onclick="openEditPlan(${plan.id}, '${plan.name}', ${plan.price}, ${plan.max_products}, ${plan.max_orders}, ${plan.max_staff})"
+      <button onclick="openEditPlan(${plan.id}, '${plan.name.replace(/'/g, "\\'")}', ${plan.price}, ${plan.duration_days || 30}, ${plan.max_stores || 1}, ${plan.max_products || 50}, ${plan.max_categories || 20}, ${plan.max_orders || 500}, ${plan.max_staff || 2})"
         class="w-full py-2.5 bg-primary-50 text-primary-600 rounded-xl text-xs font-bold hover:bg-primary-100 transition-colors mt-2">
         <i class="fas fa-edit ml-1.5"></i>تعديل الباقة
       </button>
@@ -978,49 +978,69 @@ admin.get('/plans', async (c) => {
   <div class="flex items-center justify-between mb-6">
     <div>
       <h2 class="text-xl font-black text-main">إدارة الباقات</h2>
-      <p class="text-sm text-mute mt-0.5">تعديل حدود وأسعار باقات الاشتراك</p>
+      <p class="text-sm text-mute mt-0.5">تعديل حدود وأسعار باقات الاشتراك وتطبيقها على المنصة والمتاجر</p>
     </div>
   </div>
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">${planCards}</div>
   <div id="editPlanModal" class="modal-overlay hidden">
-    <div class="modal-box p-6">
+    <div class="modal-box p-6 max-w-xl">
       <div class="flex items-center justify-between mb-5">
-        <h3 class="font-bold text-main text-lg">تعديل باقة: <span id="editPlanName"></span></h3>
+        <h3 class="font-bold text-main text-lg">تعديل الباقة: <span id="editPlanHeaderName"></span></h3>
         <button onclick="document.getElementById('editPlanModal').classList.add('hidden')" class="text-mute hover:text-main"><i class="fas fa-times text-xl"></i></button>
       </div>
       <form id="editPlanForm" class="space-y-4">
         <input type="hidden" id="editPlanId">
         <div class="grid grid-cols-2 gap-4">
-          <div>
+          <div class="col-span-2 sm:col-span-1">
+            <label class="block text-sm font-medium text-sub mb-1.5">اسم الباقة</label>
+            <input type="text" id="editPlanTitleInput" required class="w-full px-4 py-2.5 border border-std rounded-xl text-sm bg-page text-main focus:ring-2 focus:ring-primary-300 outline-none">
+          </div>
+          <div class="col-span-2 sm:col-span-1">
             <label class="block text-sm font-medium text-sub mb-1.5">السعر (ريال/شهر)</label>
-            <input type="number" id="editPlanPrice" step="1" min="0" class="w-full px-4 py-2.5 border border-std rounded-xl text-sm bg-page text-main focus:ring-2 focus:ring-primary-300 outline-none" dir="ltr">
+            <input type="number" id="editPlanPrice" step="1" min="0" required class="w-full px-4 py-2.5 border border-std rounded-xl text-sm bg-page text-main focus:ring-2 focus:ring-primary-300 outline-none" dir="ltr">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-sub mb-1.5">المدة (بالأيام)</label>
+            <input type="number" id="editPlanDurationDays" step="1" min="1" required class="w-full px-4 py-2.5 border border-std rounded-xl text-sm bg-page text-main focus:ring-2 focus:ring-primary-300 outline-none" dir="ltr">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-sub mb-1.5">عدد المتاجر المسموحة (-1 = غير محدود)</label>
+            <input type="number" id="editPlanMaxStores" step="1" required class="w-full px-4 py-2.5 border border-std rounded-xl text-sm bg-page text-main focus:ring-2 focus:ring-primary-300 outline-none" dir="ltr">
           </div>
           <div>
             <label class="block text-sm font-medium text-sub mb-1.5">عدد المنتجات (-1 = غير محدود)</label>
-            <input type="number" id="editPlanMaxProducts" step="1" class="w-full px-4 py-2.5 border border-std rounded-xl text-sm bg-page text-main focus:ring-2 focus:ring-primary-300 outline-none" dir="ltr">
+            <input type="number" id="editPlanMaxProducts" step="1" required class="w-full px-4 py-2.5 border border-std rounded-xl text-sm bg-page text-main focus:ring-2 focus:ring-primary-300 outline-none" dir="ltr">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-sub mb-1.5">عدد الأقسام (-1 = غير محدود)</label>
+            <input type="number" id="editPlanMaxCategories" step="1" required class="w-full px-4 py-2.5 border border-std rounded-xl text-sm bg-page text-main focus:ring-2 focus:ring-primary-300 outline-none" dir="ltr">
           </div>
           <div>
             <label class="block text-sm font-medium text-sub mb-1.5">الطلبات/شهر (-1 = غير محدود)</label>
-            <input type="number" id="editPlanMaxOrders" step="1" class="w-full px-4 py-2.5 border border-std rounded-xl text-sm bg-page text-main focus:ring-2 focus:ring-primary-300 outline-none" dir="ltr">
+            <input type="number" id="editPlanMaxOrders" step="1" required class="w-full px-4 py-2.5 border border-std rounded-xl text-sm bg-page text-main focus:ring-2 focus:ring-primary-300 outline-none" dir="ltr">
           </div>
           <div>
             <label class="block text-sm font-medium text-sub mb-1.5">الموظفين (-1 = غير محدود)</label>
-            <input type="number" id="editPlanMaxStaff" step="1" class="w-full px-4 py-2.5 border border-std rounded-xl text-sm bg-page text-main focus:ring-2 focus:ring-primary-300 outline-none" dir="ltr">
+            <input type="number" id="editPlanMaxStaff" step="1" required class="w-full px-4 py-2.5 border border-std rounded-xl text-sm bg-page text-main focus:ring-2 focus:ring-primary-300 outline-none" dir="ltr">
           </div>
         </div>
-        <button type="submit" class="w-full bg-primary-600 text-white py-3 rounded-xl font-semibold hover:bg-primary-700 transition-colors">
-          <i class="fas fa-save ml-2"></i>حفظ التغييرات
+        <button type="submit" class="w-full bg-primary-600 text-white py-3 rounded-xl font-semibold hover:bg-primary-700 transition-colors mt-4">
+          <i class="fas fa-save ml-2"></i>حفظ التغييرات وتطبيقها على الكل
         </button>
       </form>
     </div>
   </div>
   `, user, undefined, 'plans', `
   <script>
-    function openEditPlan(id, name, price, maxProducts, maxOrders, maxStaff) {
+    function openEditPlan(id, name, price, durationDays, maxStores, maxProducts, maxCategories, maxOrders, maxStaff) {
       document.getElementById('editPlanId').value = id;
-      document.getElementById('editPlanName').textContent = name;
+      document.getElementById('editPlanHeaderName').textContent = name;
+      document.getElementById('editPlanTitleInput').value = name;
       document.getElementById('editPlanPrice').value = price;
+      document.getElementById('editPlanDurationDays').value = durationDays || 30;
+      document.getElementById('editPlanMaxStores').value = maxStores || 1;
       document.getElementById('editPlanMaxProducts').value = maxProducts;
+      document.getElementById('editPlanMaxCategories').value = maxCategories || 20;
       document.getElementById('editPlanMaxOrders').value = maxOrders;
       document.getElementById('editPlanMaxStaff').value = maxStaff;
       document.getElementById('editPlanModal').classList.remove('hidden');
@@ -1029,15 +1049,29 @@ admin.get('/plans', async (c) => {
       e.preventDefault();
       const id = document.getElementById('editPlanId').value;
       try {
-        await axios.put('/api/admin/plans/' + id, {
+        const res = await axios.put('/api/admin/plans/' + id, {
+          name: document.getElementById('editPlanTitleInput').value.trim(),
           price: parseFloat(document.getElementById('editPlanPrice').value),
+          duration_days: parseInt(document.getElementById('editPlanDurationDays').value),
+          max_stores: parseInt(document.getElementById('editPlanMaxStores').value),
           max_products: parseInt(document.getElementById('editPlanMaxProducts').value),
+          max_categories: parseInt(document.getElementById('editPlanMaxCategories').value),
           max_orders: parseInt(document.getElementById('editPlanMaxOrders').value),
           max_staff: parseInt(document.getElementById('editPlanMaxStaff').value),
         });
-        showToast('تم حفظ الباقة بنجاح', 'success');
-        setTimeout(() => { document.getElementById('editPlanModal').classList.add('hidden'); location.reload(); }, 800);
-      } catch(err) { showToast('خطأ في الحفظ', 'error'); }
+        if (res.data && res.data.success !== false) {
+          showToast(res.data?.message || 'تم حفظ الباقة وتطبيق التعديلات بنجاح', 'success');
+          setTimeout(() => {
+            const url = new URL(window.location.href);
+            url.searchParams.set('_t', Date.now().toString());
+            window.location.href = url.toString();
+          }, 600);
+        } else {
+          showToast(res.data?.message || res.data?.error || 'خطأ في تحديث الباقة', 'error');
+        }
+      } catch(err) {
+        showToast(err.response?.data?.error || err.response?.data?.message || 'خطأ في الحفظ', 'error');
+      }
     });
   </script>
   `));
@@ -1345,12 +1379,47 @@ admin.put('/stores/:id/plan', async (c) => {
 admin.put('/plans/:id', async (c) => {
   try {
     const planId = parseInt(c.req.param('id'));
-    const { price, max_products, max_orders, max_staff } = await c.req.json() as any;
-    await c.env.DB.prepare('UPDATE plans SET price = ?, max_products = ?, max_orders = ?, max_staff = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind(price, max_products, max_orders, max_staff, planId).run();
-    return c.json({ message: 'تم تحديث الباقة بنجاح' });
+    const body = await c.req.json() as any;
+    
+    const name = body.name !== undefined ? String(body.name).trim() : null;
+    const price = body.price !== undefined ? parseFloat(body.price) : null;
+    const duration_days = body.duration_days !== undefined ? parseInt(body.duration_days) : null;
+    const max_stores = body.max_stores !== undefined ? parseInt(body.max_stores) : null;
+    const max_products = body.max_products !== undefined ? parseInt(body.max_products) : null;
+    const max_categories = body.max_categories !== undefined ? parseInt(body.max_categories) : null;
+    const max_orders = body.max_orders !== undefined ? parseInt(body.max_orders) : null;
+    const max_staff = body.max_staff !== undefined ? parseInt(body.max_staff) : null;
+
+    const existing = await c.env.DB.prepare('SELECT * FROM plans WHERE id = ?').bind(planId).first() as any;
+    if (!existing) return c.json({ success: false, message: 'الباقة غير موجودة' }, 404);
+
+    const finalName = name || existing.name;
+    const finalPrice = price !== null && !isNaN(price) ? price : existing.price;
+    const finalDuration = duration_days !== null && !isNaN(duration_days) ? duration_days : (existing.duration_days || 30);
+    const finalMaxStores = max_stores !== null && !isNaN(max_stores) ? max_stores : (existing.max_stores || 1);
+    const finalMaxProducts = max_products !== null && !isNaN(max_products) ? max_products : (existing.max_products || 50);
+    const finalMaxCategories = max_categories !== null && !isNaN(max_categories) ? max_categories : (existing.max_categories || 20);
+    const finalMaxOrders = max_orders !== null && !isNaN(max_orders) ? max_orders : (existing.max_orders || 500);
+    const finalMaxStaff = max_staff !== null && !isNaN(max_staff) ? max_staff : (existing.max_staff || 2);
+
+    try {
+      await c.env.DB.prepare(`
+        UPDATE plans
+        SET name = ?, price = ?, duration_days = ?, max_stores = ?, max_products = ?, max_categories = ?, max_orders = ?, max_staff = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).bind(finalName, finalPrice, finalDuration, finalMaxStores, finalMaxProducts, finalMaxCategories, finalMaxOrders, finalMaxStaff, planId).run();
+    } catch (dbErr) {
+      await c.env.DB.prepare(`
+        UPDATE plans
+        SET name = ?, price = ?, max_products = ?, max_orders = ?, max_staff = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).bind(finalName, finalPrice, finalMaxProducts, finalMaxOrders, finalMaxStaff, planId).run();
+    }
+
+    return c.json({ success: true, message: 'تم تحديث الباقة وتطبيق التغييرات على كافة المتاجر بنجاح' });
   } catch (err: any) {
-    console.error('[ADMIN] PUT plans/:id error:', err?.message);
-    return c.json({ success: false, error: err?.message }, 500);
+    console.error('[ADMIN] PUT plans/:id error:', err?.message || err);
+    return c.json({ success: false, error: err?.message || 'خطأ في حفظ الباقة' }, 500);
   }
 });
 
