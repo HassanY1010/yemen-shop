@@ -497,7 +497,7 @@ admin.get('/stores/:id', async (c) => {
         <div>
           <div class="flex items-center gap-2 flex-wrap">
             <h1 class="text-xl font-black text-main">${storeData.name}</h1>
-            <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold ${isStoreActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${isStoreActive ? 'نشط' : 'موقوف'}</span>
+            <span id="storeDetailStatusBadge" class="px-2.5 py-0.5 rounded-full text-xs font-semibold ${isStoreActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${isStoreActive ? 'نشط' : 'موقوف'}</span>
           </div>
           <p class="text-mute text-sm mt-0.5">/store/${storeData.slug}</p>
           <p class="text-sub text-xs mt-1">${storeData.owner_name} · ${storeData.owner_email}</p>
@@ -511,7 +511,7 @@ admin.get('/stores/:id', async (c) => {
           class="px-4 py-2 bg-primary-50 text-primary-600 rounded-xl text-sm font-semibold hover:bg-primary-100 transition-colors">
           <i class="fas fa-exchange-alt ml-1"></i>تغيير الباقة
         </button>
-        <button onclick="toggleStoreStatus(${storeData.id}, '${storeData.status || 'suspended'}', ${storeData.is_active ?? 1}, this)"
+        <button id="storeDetailToggleBtn" onclick="toggleStoreStatus(${storeData.id}, '${storeData.status || 'suspended'}', ${storeData.is_active ?? 1}, this)"
           class="px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${isStoreActive ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'}">
           ${isStoreActive ? 'إيقاف المتجر' : 'تشغيل المتجر'}
         </button>
@@ -595,6 +595,31 @@ admin.get('/stores/:id', async (c) => {
         const res = await axios.put('/api/admin/stores/' + storeId + '/status', { status: newStatus, is_active: newIsActive });
         if (res.data && res.data.success !== false) {
           showToast(newStatus === 'suspended' ? 'تم إيقاف المتجر بنجاح' : 'تم تشغيل المتجر بنجاح', 'success');
+          const targetBtn = btn || document.getElementById('storeDetailToggleBtn');
+          if (targetBtn) {
+            targetBtn.textContent = newStatus === 'suspended' ? 'تشغيل المتجر' : 'إيقاف المتجر';
+            targetBtn.className = 'px-4 py-2 rounded-xl text-sm font-semibold transition-colors ' + (newStatus === 'active' ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100');
+            targetBtn.setAttribute('onclick', "toggleStoreStatus(" + storeId + ", '" + newStatus + "', " + newIsActive + ", this)");
+          }
+          const badge = document.getElementById('storeDetailStatusBadge');
+          if (badge) {
+            badge.className = 'px-2.5 py-0.5 rounded-full text-xs font-semibold ' + (newStatus === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700');
+            badge.textContent = newStatus === 'active' ? 'نشط' : 'موقوف';
+          }
+          setTimeout(() => {
+            const url = new URL(window.location.href);
+            url.searchParams.set('_t', Date.now().toString());
+            window.location.href = url.toString();
+          }, 500);
+        } else {
+          showToast(res.data?.message || res.data?.error || 'خطأ في تحديث حالة المتجر', 'error');
+        }
+      } catch(err) {
+        showToast(err.response?.data?.error || err.response?.data?.message || 'خطأ في تحديث حالة المتجر', 'error');
+      }
+    }
+    window.toggleStoreStatus = toggleStoreStatus;
+  </script>showToast(newStatus === 'suspended' ? 'تم إيقاف المتجر بنجاح' : 'تم تشغيل المتجر بنجاح', 'success');
           if (btn) {
             btn.textContent = newStatus === 'suspended' ? 'تشغيل المتجر' : 'إيقاف المتجر';
             btn.className = 'px-4 py-2 rounded-xl text-sm font-semibold transition-colors ' + (newStatus === 'active' ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100');
