@@ -8,6 +8,13 @@ import { formatCurrency } from '../utils/helpers';
 
 const admin = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
+admin.use('*', async (c, next) => {
+  c.header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+  c.header('Pragma', 'no-cache');
+  c.header('Expires', '0');
+  await next();
+});
+
 function formatDate(d: any): string {
   if (!d) return '—';
   try {
@@ -298,7 +305,7 @@ admin.get('/stores', async (c) => {
         <td class="px-5 py-4">
           <div class="flex items-center gap-2">
             <a href="/admin/stores/${store.id}" class="text-xs px-2.5 py-1 bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100 font-medium">تفاصيل</a>
-            <button onclick="toggleStore(${store.id}, '${store.status || 'suspended'}', ${store.is_active ?? 1})"
+            <button onclick="toggleStore(${store.id}, '${store.status || 'suspended'}', ${store.is_active ?? 1}, this)"
               class="text-xs px-2.5 py-1 rounded-lg font-medium transition-colors ${isStoreActive ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'}">
               ${isStoreActive ? 'إيقاف المتجر' : 'تشغيل المتجر'}
             </button>
@@ -364,7 +371,7 @@ admin.get('/stores', async (c) => {
   </div>
   `, user, undefined, 'stores', `
   <script>
-    async function toggleStore(storeId, currentStatus, currentIsActive) {
+    async function toggleStore(storeId, currentStatus, currentIsActive, btn) {
       const isCurrentlyActive = currentStatus === 'active' && (currentIsActive === 1 || currentIsActive === true || currentIsActive === '1' || currentIsActive === undefined || currentIsActive === null);
       const newStatus = isCurrentlyActive ? 'suspended' : 'active';
       const newIsActive = isCurrentlyActive ? 0 : 1;
@@ -373,7 +380,24 @@ admin.get('/stores', async (c) => {
         const res = await axios.put('/api/admin/stores/' + storeId + '/status', { status: newStatus, is_active: newIsActive });
         if (res.data && res.data.success !== false) {
           showToast(newStatus === 'suspended' ? 'تم إيقاف المتجر بنجاح' : 'تم تشغيل المتجر بنجاح', 'success');
-          setTimeout(() => location.reload(), 500);
+          if (btn) {
+            btn.textContent = newStatus === 'suspended' ? 'تشغيل المتجر' : 'إيقاف المتجر';
+            btn.className = 'text-xs px-2.5 py-1 rounded-lg font-medium transition-colors ' + (newStatus === 'active' ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100');
+            btn.setAttribute('onclick', "toggleStore(" + storeId + ", '" + newStatus + "', " + newIsActive + ", this)");
+            const row = btn.closest('tr');
+            if (row) {
+              const badge = row.querySelector('span.rounded-full');
+              if (badge) {
+                badge.className = 'px-2.5 py-1 rounded-full text-xs font-semibold ' + (newStatus === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700');
+                badge.textContent = newStatus === 'active' ? 'نشط' : 'موقوف';
+              }
+            }
+          }
+          setTimeout(() => {
+            const url = new URL(window.location.href);
+            url.searchParams.set('_t', Date.now().toString());
+            window.location.href = url.toString();
+          }, 500);
         } else {
           showToast(res.data?.message || res.data?.error || 'خطأ في تحديث حالة المتجر', 'error');
         }
@@ -487,7 +511,7 @@ admin.get('/stores/:id', async (c) => {
           class="px-4 py-2 bg-primary-50 text-primary-600 rounded-xl text-sm font-semibold hover:bg-primary-100 transition-colors">
           <i class="fas fa-exchange-alt ml-1"></i>تغيير الباقة
         </button>
-        <button onclick="toggleStoreStatus(${storeData.id}, '${storeData.status || 'suspended'}', ${storeData.is_active ?? 1})"
+        <button onclick="toggleStoreStatus(${storeData.id}, '${storeData.status || 'suspended'}', ${storeData.is_active ?? 1}, this)"
           class="px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${isStoreActive ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'}">
           ${isStoreActive ? 'إيقاف المتجر' : 'تشغيل المتجر'}
         </button>
@@ -562,7 +586,7 @@ admin.get('/stores/:id', async (c) => {
       }
     }
     window.changePlan = changePlan;
-    async function toggleStoreStatus(storeId, currentStatus, currentIsActive) {
+    async function toggleStoreStatus(storeId, currentStatus, currentIsActive, btn) {
       const isCurrentlyActive = currentStatus === 'active' && (currentIsActive === 1 || currentIsActive === true || currentIsActive === '1' || currentIsActive === undefined || currentIsActive === null);
       const newStatus = isCurrentlyActive ? 'suspended' : 'active';
       const newIsActive = isCurrentlyActive ? 0 : 1;
@@ -571,7 +595,21 @@ admin.get('/stores/:id', async (c) => {
         const res = await axios.put('/api/admin/stores/' + storeId + '/status', { status: newStatus, is_active: newIsActive });
         if (res.data && res.data.success !== false) {
           showToast(newStatus === 'suspended' ? 'تم إيقاف المتجر بنجاح' : 'تم تشغيل المتجر بنجاح', 'success');
-          setTimeout(() => location.reload(), 500);
+          if (btn) {
+            btn.textContent = newStatus === 'suspended' ? 'تشغيل المتجر' : 'إيقاف المتجر';
+            btn.className = 'px-4 py-2 rounded-xl text-sm font-semibold transition-colors ' + (newStatus === 'active' ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100');
+            btn.setAttribute('onclick', "toggleStoreStatus(" + storeId + ", '" + newStatus + "', " + newIsActive + ", this)");
+          }
+          const badge = document.querySelector('span.rounded-full');
+          if (badge) {
+            badge.className = 'px-2.5 py-0.5 rounded-full text-xs font-semibold ' + (newStatus === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700');
+            badge.textContent = newStatus === 'active' ? 'نشط' : 'موقوف';
+          }
+          setTimeout(() => {
+            const url = new URL(window.location.href);
+            url.searchParams.set('_t', Date.now().toString());
+            window.location.href = url.toString();
+          }, 500);
         } else {
           showToast(res.data?.message || res.data?.error || 'خطأ في تحديث حالة المتجر', 'error');
         }
