@@ -672,9 +672,25 @@ app.put('/api/admin/stores/:id/status', async (c) => {
   }
 })
 app.put('/api/admin/users/:id/status', async (c) => {
-  const { is_active } = await c.req.json() as any
-  await c.env.DB.prepare('UPDATE users SET is_active = ? WHERE id = ?').bind(is_active, parseInt(c.req.param('id'))).run()
-  return c.json({ message: 'تم التحديث' })
+  try {
+    const body = await c.req.json() as any
+    const is_active = body.is_active ? 1 : 0
+    const userId = parseInt(c.req.param('id'))
+
+    await c.env.DB.prepare(
+      "UPDATE users SET is_active = ?, updated_at = datetime('now') WHERE id = ?"
+    ).bind(is_active, userId).run()
+
+    // Also update any stores owned by this merchant
+    const newStoreStatus = is_active === 1 ? 'active' : 'suspended'
+    await c.env.DB.prepare(
+      "UPDATE stores SET status = ?, is_active = ?, updated_at = datetime('now') WHERE user_id = ?"
+    ).bind(newStoreStatus, is_active, userId).run()
+
+    return c.json({ success: true, message: is_active === 1 ? 'تم تفعيل حساب المستخدم بنجاح' : 'تم إيقاف حساب المستخدم بنجاح', is_active })
+  } catch (err: any) {
+    return c.json({ success: false, error: err?.message }, 500)
+  }
 })
 app.put('/api/admin/stores/:id/plan', async (c) => {
   try {

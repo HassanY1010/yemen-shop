@@ -574,7 +574,7 @@ admin.get('/users', async (c) => {
             </button>
           </td>
           <td class="px-5 py-4">
-            <button onclick="toggleUser(${u.id}, ${u.is_active})"
+            <button onclick="toggleUser(${u.id}, ${u.is_active ? 1 : 0})"
               class="text-xs px-3 py-1.5 rounded-lg font-semibold transition-colors ${u.is_active ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'}">
               ${u.is_active ? 'إيقاف' : 'تفعيل'}
             </button>
@@ -675,15 +675,20 @@ admin.get('/users', async (c) => {
   </div>
   `, user, undefined, 'users', `
   <script>
-    async function toggleUser(userId, isActive) {
-      if (!confirm('هل أنت متأكد؟')) return;
+    async function toggleUser(userId, currentIsActive) {
+      const nextActive = currentIsActive ? 0 : 1;
+      const msg = nextActive === 1 ? 'هل تريد تفعيل حساب هذا المستخدم؟' : 'هل تريد إيقاف حساب هذا المستخدم؟';
+      if (!confirm(msg)) return;
       try {
-        await axios.put('/api/admin/users/' + userId + '/status', { is_active: isActive ? 0 : 1 });
-        showToast('تم تحديث حالة المستخدم', 'success');
-        setTimeout(() => location.reload(), 800);
-      } catch(err) { showToast('خطأ', 'error'); }
+        const res = await axios.put('/api/admin/users/' + userId + '/status', { is_active: nextActive });
+        showToast(res.data?.message || (nextActive === 1 ? 'تم تفعيل المستخدم بنجاح' : 'تم إيقاف المستخدم بنجاح'), 'success');
+        setTimeout(() => location.reload(), 600);
+      } catch(err) {
+        showToast(err.response?.data?.message || err.response?.data?.error || 'خطأ في تحديث حالة المستخدم', 'error');
+      }
     }
-    
+    window.toggleUser = toggleUser;
+
     async function resetPassword(type, id) {
       if (!confirm('هل أنت متأكد من إعادة تعيين كلمة المرور إلى 1234567891؟ سيُطلب من المستخدم تغييرها عند تسجيل الدخول القادم.')) return;
       try {
@@ -698,6 +703,7 @@ admin.get('/users', async (c) => {
         console.error(err);
       }
     }
+    window.resetPassword = resetPassword;
   </script>
   `));
 });
@@ -1052,10 +1058,21 @@ admin.put('/stores/:id/status', async (c) => {
 
 admin.put('/users/:id/status', async (c) => {
   try {
-    const { is_active } = await c.req.json() as any;
+    const body = await c.req.json() as any;
+    const is_active = body.is_active ? 1 : 0;
     const userId = parseInt(c.req.param('id'));
-    await c.env.DB.prepare('UPDATE users SET is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind(is_active, userId).run();
-    return c.json({ message: 'تم تحديث حالة المستخدم' });
+
+    await c.env.DB.prepare(
+      "UPDATE users SET is_active = ?, updated_at = datetime('now') WHERE id = ?"
+    ).bind(is_active, userId).run();
+
+    // Also update any stores owned by this merchant
+    const newStoreStatus = is_active === 1 ? 'active' : 'suspended';
+    await c.env.DB.prepare(
+      "UPDATE stores SET status = ?, is_active = ?, updated_at = datetime('now') WHERE user_id = ?"
+    ).bind(newStoreStatus, is_active, userId).run();
+
+    return c.json({ success: true, message: is_active === 1 ? 'تم تفعيل حساب المستخدم بنجاح' : 'تم إيقاف حساب المستخدم بنجاح', is_active });
   } catch (err: any) {
     console.error('[ADMIN] PUT users/:id/status error:', err?.message);
     return c.json({ success: false, error: err?.message }, 500);
