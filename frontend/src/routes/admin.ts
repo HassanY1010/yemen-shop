@@ -8,6 +8,34 @@ import { formatCurrency } from '../utils/helpers';
 
 const admin = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
+function formatDate(d: any): string {
+  if (!d) return '—';
+  try {
+    const dateObj = typeof d === 'string' || typeof d === 'number' ? new Date(d) : d;
+    if (isNaN(dateObj.getTime())) return '—';
+    const y = dateObj.getFullYear();
+    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    return `${y}/${m}/${day}`;
+  } catch (e) {
+    return String(d).slice(0, 10);
+  }
+}
+
+async function ensurePlatformSettingsTable(db: any) {
+  if (!db) return;
+  try {
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS platform_settings (
+        key VARCHAR(255) PRIMARY KEY,
+        value TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run();
+  } catch (e) {}
+}
+
 // ─── Admin Overview ───────────────────────────────────────────
 admin.get('/', async (c) => {
   const user = c.get('user')!;
@@ -208,23 +236,29 @@ admin.get('/stores', async (c) => {
   const perPage = 20;
   const offset = (page - 1) * perPage;
 
+  const { ensurePlansSeeded } = await import('../middleware/tenant');
+  await ensurePlansSeeded(c.env.DB);
+
   let where = 'WHERE 1=1';
   const params: any[] = [];
-  if (status) { where += ' AND s.status = ?'; params.push(status); }
+  if (status) { 
+    if (status === 'active') where += " AND (s.status = 'active' OR s.is_active = 1)";
+    else where += " AND (s.status != 'active' AND (s.is_active = 0 OR s.is_active IS NULL))";
+  }
   if (search) { where += ' AND (s.name LIKE ? OR s.slug LIKE ? OR u.name LIKE ? OR u.email LIKE ?)'; params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`); }
   if (planFilter) { where += ' AND p.slug = ?'; params.push(planFilter); }
 
   const [stores, totalCount, plans, storesActive, storesSuspended] = await Promise.all([
     c.env.DB.prepare(`
-      SELECT s.*, u.name as owner_name, u.email as owner_email, p.name as plan_name, p.slug as plan_slug,
+      SELECT s.*, COALESCE(u.name, 'بدون مالك') as owner_name, COALESCE(u.email, '—') as owner_email, COALESCE(p.name, 'بدون باقة') as plan_name, COALESCE(p.slug, 'free') as plan_slug,
         (SELECT COUNT(*) FROM orders WHERE store_id = s.id) as orders_count
-      FROM stores s JOIN users u ON s.user_id = u.id JOIN plans p ON s.plan_id = p.id
+      FROM stores s LEFT JOIN users u ON s.user_id = u.id LEFT JOIN plans p ON s.plan_id = p.id
       ${where} ORDER BY s.created_at DESC LIMIT ${perPage} OFFSET ${offset}
     `).bind(...params).all(),
-    c.env.DB.prepare(`SELECT COUNT(*) as count FROM stores s JOIN users u ON s.user_id = u.id JOIN plans p ON s.plan_id = p.id ${where}`).bind(...params).first() as Promise<any>,
+    c.env.DB.prepare(`SELECT COUNT(*) as count FROM stores s LEFT JOIN users u ON s.user_id = u.id LEFT JOIN plans p ON s.plan_id = p.id ${where}`).bind(...params).first() as Promise<any>,
     c.env.DB.prepare('SELECT * FROM plans ORDER BY price ASC').all(),
-    c.env.DB.prepare("SELECT COUNT(*) as count FROM stores WHERE status = 'active'").first() as Promise<any>,
-    c.env.DB.prepare("SELECT COUNT(*) as count FROM stores WHERE status != 'active'").first() as Promise<any>,
+    c.env.DB.prepare("SELECT COUNT(*) as count FROM stores WHERE status = 'active' OR is_active = 1").first() as Promise<any>,
+    c.env.DB.prepare("SELECT COUNT(*) as count FROM stores WHERE status != 'active' AND (is_active = 0 OR is_active IS NULL)").first() as Promise<any>,
   ]);
 
   const total = totalCount?.count || 0;
@@ -255,7 +289,7 @@ admin.get('/stores', async (c) => {
         <td class="px-5 py-4 text-center font-bold text-main text-sm">${store.orders_count}</td>
         <td class="px-5 py-4 font-bold text-main text-sm">${formatCurrency(store.total_sales || 0)}</td>
         <td class="px-5 py-4"><span class="px-2.5 py-1 rounded-full text-xs font-semibold ${(store.status === 'active' || store.is_active === 1 || store.is_active === true) ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${(store.status === 'active' || store.is_active === 1 || store.is_active === true) ? 'نشط' : 'موقوف'}</span></td>
-        <td class="px-5 py-4 text-mute text-xs">${new Date(store.created_at).toLocaleDateString('ar-SA')}</td>
+        <td class="px-5 py-4 text-mute text-xs">${formatDate(store.created_at)}</td>
         <td class="px-5 py-4">
           <div class="flex items-center gap-2">
             <a href="/admin/stores/${store.id}" class="text-xs px-2.5 py-1 bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100 font-medium">تفاصيل</a>
@@ -346,13 +380,16 @@ admin.get('/stores/:id', async (c) => {
   const user = c.get('user')!;
   const storeId = parseInt(c.req.param('id'));
 
+  const { ensurePlansSeeded } = await import('../middleware/tenant');
+  await ensurePlansSeeded(c.env.DB);
+
   const [storeData, storeOrders, storeProducts, storeCustomers, plans] = await Promise.all([
     c.env.DB.prepare(`
-      SELECT s.*, u.name as owner_name, u.email as owner_email, 
+      SELECT s.*, COALESCE(u.name, 'بدون مالك') as owner_name, COALESCE(u.email, '—') as owner_email, 
              COALESCE(p.name, 'مجاني') as plan_name, 
              COALESCE(p.slug, 'free') as plan_slug, 
              COALESCE(p.price, 0) as plan_price
-      FROM stores s JOIN users u ON s.user_id = u.id LEFT JOIN plans p ON s.plan_id = p.id WHERE s.id = ?
+      FROM stores s LEFT JOIN users u ON s.user_id = u.id LEFT JOIN plans p ON s.plan_id = p.id WHERE s.id = ?
     `).bind(storeId).first() as Promise<any>,
     c.env.DB.prepare('SELECT * FROM orders WHERE store_id = ? ORDER BY created_at DESC LIMIT 10').bind(storeId).all(),
     c.env.DB.prepare("SELECT COUNT(*) as count FROM products WHERE store_id = ? AND status = 'active'").bind(storeId).first() as Promise<any>,
@@ -397,7 +434,7 @@ admin.get('/stores/:id', async (c) => {
         <td class="px-5 py-3 text-main text-sm">${order.customer_name}</td>
         <td class="px-5 py-3 font-bold text-main text-sm">${formatCurrency(order.total)}</td>
         <td class="px-5 py-3"><span class="px-2.5 py-0.5 rounded-full text-xs font-semibold ${statusColors[order.status] || 'bg-gray-100 text-gray-600'}">${statusLabels[order.status] || order.status}</span></td>
-        <td class="px-5 py-3 text-mute text-xs">${new Date(order.created_at).toLocaleDateString('ar-SA')}</td>
+        <td class="px-5 py-3 text-mute text-xs">${formatDate(order.created_at)}</td>
       </tr>`).join('');
 
   const plansListHtml = (plans.results as any[]).map((p: any) => `
@@ -456,7 +493,7 @@ admin.get('/stores/:id', async (c) => {
         </div>
         <i class="fas fa-crown text-4xl text-yellow-300 opacity-80"></i>
       </div>
-      ${storeData.subscription_ends_at ? '<p class="text-xs text-mute mt-3">ينتهي في: ' + new Date(storeData.subscription_ends_at).toLocaleDateString('ar-SA') + '</p>' : ''}
+      ${storeData.subscription_ends_at ? '<p class="text-xs text-mute mt-3">ينتهي في: ' + formatDate(storeData.subscription_ends_at) + '</p>' : ''}
     </div>
     <div class="bg-card rounded-2xl border border-std p-6 shadow-sm">
       <h3 class="font-bold text-main mb-4"><i class="fas fa-info-circle text-blue-500 ml-2"></i>معلومات المتجر</h3>
@@ -465,7 +502,7 @@ admin.get('/stores/:id', async (c) => {
         ${storeData.email ? '<div class="flex justify-between"><span class="text-mute">البريد</span><span class="text-main font-medium">' + storeData.email + '</span></div>' : ''}
         ${storeData.city ? '<div class="flex justify-between"><span class="text-mute">المدينة</span><span class="text-main font-medium">' + storeData.city + '</span></div>' : ''}
         <div class="flex justify-between"><span class="text-mute">العملة</span><span class="text-main font-medium">${storeData.currency || 'SAR'}</span></div>
-        <div class="flex justify-between"><span class="text-mute">تاريخ الإنشاء</span><span class="text-main font-medium">${new Date(storeData.created_at).toLocaleDateString('ar-SA')}</span></div>
+        <div class="flex justify-between"><span class="text-mute">تاريخ الإنشاء</span><span class="text-main font-medium">${formatDate(storeData.created_at)}</span></div>
       </div>
     </div>
   </div>
@@ -571,7 +608,7 @@ admin.get('/users', async (c) => {
           <td class="px-5 py-4 text-center font-bold text-main text-sm">${u.stores_count}</td>
           <td class="px-5 py-4 text-center font-bold text-main text-sm">${u.total_orders}</td>
           <td class="px-5 py-4"><span class="px-2.5 py-0.5 rounded-full text-xs font-semibold ${(u.is_active === 1 || u.is_active === true || u.is_active === '1') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${(u.is_active === 1 || u.is_active === true || u.is_active === '1') ? 'نشط' : 'موقوف'}</span></td>
-          <td class="px-5 py-4 text-mute text-xs">${new Date(u.created_at).toLocaleDateString('ar-SA')}</td>
+          <td class="px-5 py-4 text-mute text-xs">${formatDate(u.created_at)}</td>
           <td class="px-5 py-4">
             <button onclick="resetPassword('merchant', ${u.id})"
               class="text-xs px-3 py-1.5 rounded-lg font-semibold transition-colors bg-orange-50 text-orange-600 hover:bg-orange-100">
@@ -612,7 +649,7 @@ admin.get('/users', async (c) => {
           <td class="px-5 py-4 text-center font-bold text-main text-sm">-</td>
           <td class="px-5 py-4 text-center font-bold text-main text-sm">${c.total_orders}</td>
           <td class="px-5 py-4"><span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">نشط</span></td>
-          <td class="px-5 py-4 text-mute text-xs">${new Date(c.created_at).toLocaleDateString('ar-SA')}</td>
+          <td class="px-5 py-4 text-mute text-xs">${formatDate(c.created_at)}</td>
           <td class="px-5 py-4">
             <button onclick="resetPassword('customer', ${c.id})"
               class="text-xs px-3 py-1.5 rounded-lg font-semibold transition-colors bg-orange-50 text-orange-600 hover:bg-orange-100">
@@ -983,7 +1020,7 @@ admin.get('/subscriptions', async (c) => {
             ${store.subscription_status === 'active' ? 'نشط' : isPending ? 'بانتظار التفعيل' : 'منتهي'}
           </span>
         </td>
-        <td class="px-5 py-4 text-sm ${isExpiringSoon ? 'text-amber-600 font-bold' : 'text-sub'}">${endsAt ? (isExpiringSoon ? '⚠ ' : '') + endsAt.toLocaleDateString('ar-SA') : '<span class="text-mute">—</span>'}</td>
+        <td class="px-5 py-4 text-sm ${isExpiringSoon ? 'text-amber-600 font-bold' : 'text-sub'}">${endsAt ? (isExpiringSoon ? '⚠ ' : '') + formatDate(endsAt) : '<span class="text-mute">—</span>'}</td>
         <td class="px-5 py-4 flex gap-2">
           <button onclick="activateSubscription(${store.id})"
             class="text-xs px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold transition-all shadow-sm flex items-center gap-1">
@@ -1068,7 +1105,7 @@ admin.put('/stores/:id/status', async (c) => {
     status = is_active === 1 ? 'active' : 'suspended';
 
     await c.env.DB.prepare(
-      "UPDATE stores SET status = ?, is_active = ?, updated_at = datetime('now') WHERE id = ?"
+      "UPDATE stores SET status = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
     ).bind(status, is_active, storeId).run();
     return c.json({ success: true, message: is_active === 1 ? 'تم تشغيل المتجر بنجاح' : 'تم إيقاف المتجر بنجاح', status, is_active });
   } catch (err: any) {
@@ -1092,13 +1129,13 @@ admin.put('/users/:id/status', async (c) => {
     }
 
     await c.env.DB.prepare(
-      "UPDATE users SET is_active = ?, updated_at = datetime('now') WHERE id = ?"
+      "UPDATE users SET is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
     ).bind(is_active, userId).run();
 
     // Also update any stores owned by this merchant
     const newStoreStatus = is_active === 1 ? 'active' : 'suspended';
     await c.env.DB.prepare(
-      "UPDATE stores SET status = ?, is_active = ?, updated_at = datetime('now') WHERE user_id = ?"
+      "UPDATE stores SET status = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?"
     ).bind(newStoreStatus, is_active, userId).run();
 
     return c.json({ success: true, message: is_active === 1 ? 'تم تفعيل حساب المستخدم بنجاح' : 'تم إيقاف حساب المستخدم بنجاح', is_active });
@@ -1158,7 +1195,7 @@ admin.post('/stores/:id/activate-subscription', async (c) => {
 
     await c.env.DB.prepare(`
       UPDATE stores 
-      SET subscription_status = 'active', status = 'active', is_active = 1, subscription_starts_at = ?, subscription_ends_at = ?, updated_at = datetime('now')
+      SET subscription_status = 'active', status = 'active', is_active = 1, subscription_starts_at = ?, subscription_ends_at = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `).bind(startsAt.toISOString(), endsAt.toISOString(), storeId).run();
 
@@ -1199,7 +1236,7 @@ admin.put('/stores/:id/plan', async (c) => {
 
     await c.env.DB.prepare(`
       UPDATE stores 
-      SET plan_id = ?, subscription_status = 'active', status = 'active', is_active = 1, subscription_starts_at = datetime('now'), subscription_ends_at = ?, updated_at = datetime('now') 
+      SET plan_id = ?, subscription_status = 'active', status = 'active', is_active = 1, subscription_starts_at = CURRENT_TIMESTAMP, subscription_ends_at = ?, updated_at = CURRENT_TIMESTAMP 
       WHERE id = ?
     `).bind(plan.id, endsAt.toISOString(), storeId).run();
 
@@ -1252,6 +1289,8 @@ admin.post('/stores/:id/extend', async (c) => {
 // ─── Admin Settings Page ──────────────────────────────────────
 admin.get('/settings', async (c) => {
   const user = c.get('user')!;
+
+  await ensurePlatformSettingsTable(c.env.DB);
 
   // Fetch current platform settings from database
   let settingsMap: Record<string, string> = {};
@@ -1376,15 +1415,16 @@ admin.get('/settings', async (c) => {
 
 admin.put('/settings', async (c) => {
   try {
+    await ensurePlatformSettingsTable(c.env.DB);
     const body = await c.req.json() as Record<string, string>;
     for (const [key, value] of Object.entries(body)) {
       const valStr = String(value ?? '');
       const existing = await c.env.DB.prepare('SELECT key FROM platform_settings WHERE key = ?').bind(key).first();
       if (existing) {
-        await c.env.DB.prepare("UPDATE platform_settings SET value = ?, updated_at = datetime('now') WHERE key = ?")
+        await c.env.DB.prepare("UPDATE platform_settings SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = ?")
           .bind(valStr, key).run();
       } else {
-        await c.env.DB.prepare("INSERT INTO platform_settings (key, value, updated_at) VALUES (?, ?, datetime('now'))")
+        await c.env.DB.prepare("INSERT INTO platform_settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)")
           .bind(key, valStr).run();
       }
     }

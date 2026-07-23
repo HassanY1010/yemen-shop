@@ -14,8 +14,8 @@ const STATIC_ASSETS = [
   'https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap'
 ];
 
-// ── Install: cache static assets ──────────────────────────────
-self.addEventListener('install', (event) => {
+if (typeof self !== 'undefined') {
+  self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(STATIC_CACHE).then((cache) => {
       // Don't fail if some assets can't be cached
@@ -148,3 +148,4 @@ self.addEventListener('notificationclick', (event) => {
     })
   );
 });
+}
