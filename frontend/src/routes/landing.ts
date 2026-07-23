@@ -7,8 +7,44 @@ import { baseLayout } from '../utils/templates';
 
 const landing = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
-landing.get('/', (c) => {
-  return c.html(baseLayout('منصة سوق - أنشئ متجرك في دقائق', `
+landing.get('/', async (c) => {
+  let platformName = 'منصة سوق';
+  let supportEmail = 'support@platform.com';
+  let supportWhatsapp = '+967776461892';
+
+  try {
+    const { ensurePlansSeeded } = await import('../middleware/tenant');
+    if (c.env?.DB) {
+      await ensurePlansSeeded(c.env.DB);
+      const settingsRows = await c.env.DB.prepare('SELECT key, value FROM platform_settings').all() as any;
+      if (settingsRows?.results) {
+        for (const r of settingsRows.results) {
+          if (r.key === 'platform_name' && r.value) platformName = r.value;
+          if (r.key === 'support_email' && r.value) supportEmail = r.value;
+          if (r.key === 'support_whatsapp' && r.value) supportWhatsapp = r.value;
+        }
+      }
+    }
+  } catch (e) {}
+
+  let plans: any[] = [];
+  try {
+    if (c.env?.DB) {
+      const res = await c.env.DB.prepare('SELECT * FROM plans ORDER BY price ASC').all() as any;
+      if (res?.results && res.results.length > 0) plans = res.results;
+    }
+  } catch (e) {}
+
+  if (!plans.length) {
+    plans = [
+      { name: 'مجاني', price: 0, duration_days: 5, max_products: 5, max_orders: 50, max_staff: 1, slug: 'free' },
+      { name: 'أساسي', price: 15000, duration_days: 30, max_products: 50, max_orders: 500, max_staff: 2, slug: 'basic' },
+      { name: 'احترافي', price: 30000, duration_days: 30, max_products: 200, max_orders: 2000, max_staff: 5, slug: 'pro' },
+      { name: 'أعمال', price: 60000, duration_days: 30, max_products: -1, max_orders: -1, max_staff: -1, slug: 'business' }
+    ];
+  }
+
+  return c.html(baseLayout(`${platformName} - أنشئ متجرك في دقائق`, `
   <!-- Navbar -->
   <nav class="bg-white/95 backdrop-blur-sm sticky top-0 z-50 border-b border-gray-100 shadow-sm">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
@@ -16,7 +52,7 @@ landing.get('/', (c) => {
         <div class="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center">
           <i class="fas fa-store text-white text-lg"></i>
         </div>
-        <span class="text-2xl font-black text-gray-800">سوق<span class="text-primary-600">.</span></span>
+        <span class="text-2xl font-black text-gray-800">${platformName}</span>
       </div>
       <div class="hidden md:flex items-center gap-6 text-sm font-medium text-gray-600">
         <a href="#features" class="hover:text-primary-600 transition-colors">المميزات</a>
@@ -38,14 +74,14 @@ landing.get('/', (c) => {
     <div class="max-w-4xl mx-auto text-center">
       <div class="inline-flex items-center gap-2 bg-white/20 text-white text-sm font-medium px-4 py-2 rounded-full mb-6 backdrop-blur-sm">
         <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-        أكثر من 500+ متجر نشط على المنصة
+        مرحباً بكم في ${platformName}
       </div>
       <h1 class="text-5xl sm:text-6xl lg:text-7xl font-black mb-6 leading-tight">
         أنشئ متجرك<br>
         <span class="text-yellow-300">في دقائق</span>
       </h1>
       <p class="text-xl sm:text-2xl text-purple-100 mb-10 max-w-2xl mx-auto leading-relaxed">
-        منصة SaaS متكاملة لإنشاء متاجر إلكترونية احترافية بأدوات قوية وبسهولة تامة
+        ${platformName} — منصة متكاملة لإنشاء متاجر إلكترونية احترافية بأدوات قوية وبسهولة تامة
       </p>
       <div class="flex flex-col sm:flex-row gap-4 justify-center">
         <a href="/auth/register" 
@@ -90,7 +126,7 @@ landing.get('/', (c) => {
   <section id="features" class="py-24 px-4 bg-gray-50">
     <div class="max-w-7xl mx-auto">
       <div class="text-center mb-16">
-        <h2 class="text-4xl font-black text-gray-800 mb-4">كل ما تحتاجه في منصة واحدة</h2>
+        <h2 class="text-4xl font-black text-gray-800 mb-4">كل ما تحتاجه في ${platformName}</h2>
         <p class="text-xl text-gray-500 max-w-2xl mx-auto">أدوات متكاملة لإدارة متجرك الإلكتروني من صورة المنتج حتى تسليم الطلب</p>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -153,30 +189,24 @@ landing.get('/', (c) => {
         <p class="text-xl text-gray-500">اختر الباقة التي تناسب احتياجاتك، وقم بالترقية في أي وقت</p>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        ${[
-          { name: 'مجاني', price: '0', period: 'دائماً', products: '10', orders: '50', staff: '1', featured: false, color: 'border-gray-200', btn: 'bg-gray-100 text-gray-700 hover:bg-gray-200', badge: '' },
-          { name: 'أساسي', price: '49', period: 'شهرياً', products: '50', orders: '500', staff: '2', featured: false, color: 'border-blue-200', btn: 'bg-blue-600 text-white hover:bg-blue-700', badge: 'الأكثر طلباً' },
-          { name: 'احترافي', price: '99', period: 'شهرياً', products: '200', orders: '2,000', staff: '5', featured: true, color: 'border-primary-400', btn: 'bg-primary-600 text-white hover:bg-primary-700', badge: 'موصى به' },
-          { name: 'أعمال', price: '199', period: 'شهرياً', products: 'غير محدود', orders: 'غير محدود', staff: 'غير محدود', featured: false, color: 'border-purple-200', btn: 'bg-purple-600 text-white hover:bg-purple-700', badge: '' },
-        ].map(plan => `
-        <div class="bg-white rounded-2xl border-2 ${plan.color} p-6 ${plan.featured ? 'shadow-2xl shadow-primary-100 scale-105 relative' : 'shadow-sm'} card-hover">
-          ${plan.badge ? `<div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary-600 text-white text-xs font-bold px-4 py-1 rounded-full">${plan.badge}</div>` : ''}
+        ${plans.map((plan: any) => `
+        <div class="bg-white rounded-2xl border-2 ${plan.slug === 'pro' ? 'border-primary-400 shadow-2xl shadow-primary-100 scale-105 relative' : 'border-gray-200 shadow-sm'} card-hover p-6">
+          ${plan.slug === 'pro' ? `<div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary-600 text-white text-xs font-bold px-4 py-1 rounded-full">موصى به</div>` : ''}
           <h3 class="font-black text-gray-800 text-xl mb-2">${plan.name}</h3>
           <div class="mb-5">
-            <span class="text-5xl font-black text-gray-800">${plan.price}</span>
-            ${plan.price !== '0' ? `<span class="text-gray-500 text-sm mr-1">ريال / ${plan.period}</span>` : `<span class="text-gray-500 text-sm mr-1">للأبد</span>`}
+            <span class="text-4xl font-black text-gray-800">${plan.price === 0 ? '0' : plan.price.toLocaleString('ar-SA')}</span>
+            <span class="text-gray-500 text-sm mr-1">ريال / ${plan.price === 0 ? 'مجاني' : (plan.duration_days ? plan.duration_days + ' يوم' : 'شهرياً')}</span>
           </div>
           <ul class="space-y-2.5 mb-6 text-sm text-gray-600">
-            <li class="flex items-center gap-2"><i class="fas fa-check text-green-500 text-xs w-4"></i>${plan.products} منتج</li>
-            <li class="flex items-center gap-2"><i class="fas fa-check text-green-500 text-xs w-4"></i>${plan.orders} طلب/شهر</li>
-            <li class="flex items-center gap-2"><i class="fas fa-check text-green-500 text-xs w-4"></i>${plan.staff} موظف</li>
+            <li class="flex items-center gap-2"><i class="fas fa-check text-green-500 text-xs w-4"></i>${plan.max_products === -1 ? 'منتجات غير محدودة' : plan.max_products + ' منتج'}</li>
+            <li class="flex items-center gap-2"><i class="fas fa-check text-green-500 text-xs w-4"></i>${plan.max_orders === -1 ? 'طلبات غير محدودة' : plan.max_orders.toLocaleString('ar-SA') + ' طلب/شهر'}</li>
+            <li class="flex items-center gap-2"><i class="fas fa-check text-green-500 text-xs w-4"></i>${plan.max_staff === -1 ? 'موظفون غير محدودين' : plan.max_staff + ' موظف'}</li>
             <li class="flex items-center gap-2"><i class="fas fa-check text-green-500 text-xs w-4"></i>لوحة تحكم كاملة</li>
             <li class="flex items-center gap-2"><i class="fas fa-check text-green-500 text-xs w-4"></i>SSL مجاني</li>
-            ${plan.featured ? '<li class="flex items-center gap-2"><i class="fas fa-check text-green-500 text-xs w-4"></i>أولوية الدعم الفني</li>' : ''}
           </ul>
           <a href="/auth/register" 
-             class="${plan.btn} font-semibold py-3 px-4 rounded-xl text-sm text-center block transition-all">
-            ${plan.price === '0' ? 'ابدأ مجاناً' : 'اشترك الآن'}
+             class="${plan.slug === 'pro' ? 'bg-primary-600 text-white hover:bg-primary-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'} font-semibold py-3 px-4 rounded-xl text-sm text-center block transition-all">
+            ${plan.price === 0 ? 'ابدأ مجاناً' : 'اشترك الآن'}
           </a>
         </div>
         `).join('')}
@@ -188,7 +218,7 @@ landing.get('/', (c) => {
   <section class="gradient-primary text-white py-24 px-4">
     <div class="max-w-3xl mx-auto text-center">
       <h2 class="text-4xl sm:text-5xl font-black mb-6">جاهز لإطلاق متجرك؟</h2>
-      <p class="text-xl text-purple-100 mb-10">انضم لآلاف التجار الذين يديرون متاجرهم عبر منصة سوق</p>
+      <p class="text-xl text-purple-100 mb-10">انضم لآلاف التجار الذين يديرون متاجرهم عبر ${platformName}</p>
       <a href="/auth/register"
          class="bg-white text-primary-600 hover:bg-gray-50 font-bold px-12 py-5 rounded-2xl text-xl transition-all shadow-2xl inline-flex items-center gap-3">
         <i class="fas fa-store"></i>
@@ -207,10 +237,10 @@ landing.get('/', (c) => {
             <div class="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center">
               <i class="fas fa-store text-white"></i>
             </div>
-            <span class="text-2xl font-black">سوق<span class="text-primary-400">.</span></span>
+            <span class="text-2xl font-black">${platformName}</span>
           </div>
           <p class="text-gray-400 leading-relaxed max-w-sm">
-            منصة SaaS رائدة لإنشاء وإدارة المتاجر الإلكترونية بأعلى معايير الجودة والأمان
+            ${platformName} — منصة SaaS رائدة لإنشاء وإدارة المتاجر الإلكترونية بأعلى معايير الجودة والأمان
           </p>
         </div>
         <div>
@@ -226,13 +256,12 @@ landing.get('/', (c) => {
           <h4 class="font-bold mb-4 text-gray-200">للتجار</h4>
           <ul class="space-y-2 text-sm text-gray-400">
             <li><a href="/dashboard" class="hover:text-white transition-colors">لوحة التحكم</a></li>
-            <li><a href="/store/tech-store" class="hover:text-white transition-colors">مثال: متجر التقنية</a></li>
-            <li><a href="/store/fashion-store" class="hover:text-white transition-colors">مثال: متجر الأزياء</a></li>
+            <li><a href="/admin" class="hover:text-white transition-colors">لوحة الإدارة</a></li>
           </ul>
         </div>
       </div>
       <div class="border-t border-gray-800 pt-8 text-center text-sm text-gray-500">
-        <p>© ${new Date().getFullYear()} منصة سوق - جميع الحقوق محفوظة</p>
+        <p>© ${new Date().getFullYear()} ${platformName} - جميع الحقوق محفوظة</p>
       </div>
     </div>
   </footer>
