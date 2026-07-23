@@ -1022,20 +1022,26 @@ admin.get('/subscriptions', async (c) => {
     async function activateSubscription(storeId) {
       if (!confirm('هل تريد تفعيل باقة الاشتراك لهذا المتجر وبدء سريان الصلاحية الآن؟')) return;
       try {
-        await axios.post('/admin/stores/' + storeId + '/activate-subscription', {});
-        showToast('تم تفعيل باقة المتجر بنجاح', 'success');
-        setTimeout(() => location.reload(), 800);
-      } catch(err) { showToast('خطأ في تفعيل الباقة', 'error'); }
+        const res = await axios.post('/api/admin/stores/' + storeId + '/activate-subscription', {});
+        showToast(res.data?.message || 'تم تفعيل باقة المتجر بنجاح', 'success');
+        setTimeout(() => location.reload(), 600);
+      } catch(err) {
+        showToast(err.response?.data?.message || err.response?.data?.error || 'خطأ في تفعيل الباقة', 'error');
+      }
     }
+    window.activateSubscription = activateSubscription;
 
     async function extendSubscription(storeId) {
       if (!confirm('هل تريد تمديد الاشتراك لمدة شهر إضافي؟')) return;
       try {
-        await axios.post('/api/admin/stores/' + storeId + '/extend', {});
-        showToast('تم تمديد الاشتراك بنجاح', 'success');
-        setTimeout(() => location.reload(), 800);
-      } catch(err) { showToast('خطأ في التمديد', 'error'); }
+        const res = await axios.post('/api/admin/stores/' + storeId + '/extend', {});
+        showToast(res.data?.message || 'تم تمديد الاشتراك بنجاح', 'success');
+        setTimeout(() => location.reload(), 600);
+      } catch(err) {
+        showToast(err.response?.data?.message || err.response?.data?.error || 'خطأ في التمديد', 'error');
+      }
     }
+    window.extendSubscription = extendSubscription;
   </script>
   `));
 });
@@ -1106,58 +1112,49 @@ admin.post('/customers/:id/reset-password', async (c) => {
 });
 
 admin.post('/stores/:id/activate-subscription', async (c) => {
-  const storeId = parseInt(c.req.param('id'));
-  
-  const { ensurePlansSeeded } = await import('../middleware/tenant');
-  await ensurePlansSeeded(c.env.DB);
-
-  const store = await c.env.DB.prepare(`
-    SELECT s.*, p.duration_days as plan_duration_days, p.slug as plan_slug, p.name as plan_name 
-    FROM stores s JOIN plans p ON s.plan_id = p.id WHERE s.id = ?
-  `).bind(storeId).first() as any;
-  if (!store) return c.json({ message: 'المتجر غير موجود' }, 404);
-
-  let durationDays = store.plan_duration_days;
-  if (!durationDays || store.plan_slug === 'free' || (store.plan_name && store.plan_name.toLowerCase().includes('5'))) {
-    durationDays = 5;
-  }
-
-  const startsAt = new Date();
-  const endsAt = new Date();
-  endsAt.setDate(endsAt.getDate() + durationDays);
-
   try {
-    await c.env.DB.prepare(`
-      UPDATE stores 
-      SET subscription_status = 'active', status = 'active', subscription_starts_at = ?, subscription_ends_at = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).bind(startsAt.toISOString(), endsAt.toISOString(), storeId).run();
-  } catch (err) {
-    try {
-      await c.env.DB.prepare("ALTER TABLE stores ADD COLUMN subscription_status VARCHAR(50) DEFAULT 'active'").run();
-      await c.env.DB.prepare("ALTER TABLE stores ADD COLUMN subscription_starts_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP").run();
-      await c.env.DB.prepare("ALTER TABLE stores ADD COLUMN subscription_ends_at TIMESTAMP").run();
-    } catch {}
+    const storeId = parseInt(c.req.param('id'));
+    
+    const { ensurePlansSeeded } = await import('../middleware/tenant');
+    await ensurePlansSeeded(c.env.DB);
+
+    const store = await c.env.DB.prepare(`
+      SELECT s.*, p.duration_days as plan_duration_days, p.slug as plan_slug, p.name as plan_name, p.price as plan_price 
+      FROM stores s LEFT JOIN plans p ON s.plan_id = p.id WHERE s.id = ?
+    `).bind(storeId).first() as any;
+    if (!store) return c.json({ success: false, message: 'المتجر غير موجود' }, 404);
+
+    let durationDays = store.plan_duration_days;
+    if (!durationDays || durationDays <= 0) {
+      durationDays = (store.plan_slug === 'free' || store.plan_price === 0) ? 365 : 30;
+    }
+
+    const startsAt = new Date();
+    const endsAt = new Date();
+    endsAt.setDate(endsAt.getDate() + durationDays);
 
     await c.env.DB.prepare(`
       UPDATE stores 
-      SET subscription_status = 'active', status = 'active', subscription_starts_at = ?, subscription_ends_at = ?
+      SET subscription_status = 'active', status = 'active', is_active = 1, subscription_starts_at = ?, subscription_ends_at = ?, updated_at = datetime('now')
       WHERE id = ?
     `).bind(startsAt.toISOString(), endsAt.toISOString(), storeId).run();
+
+    const { NotificationService } = await import('../services/notification');
+    await NotificationService.createNotification(c.env.DB, {
+      user_type: 'merchant',
+      user_id: store.user_id,
+      store_id: store.id,
+      title: 'تم تفعيل باقة المتجر بنجاح! 👑',
+      message: `تم تفعيل باقة متجرك (${store.plan_name || 'الأساسية'}) لمدة ${durationDays} يوم بنجاح.`,
+      link: '/dashboard/subscription',
+      type: 'subscription'
+    });
+
+    return c.json({ success: true, message: `تم تفعيل باقة المتجر بنجاح لمدة ${durationDays} يوم`, ends_at: endsAt.toISOString() });
+  } catch (err: any) {
+    console.error('[ADMIN] activate subscription error:', err?.message);
+    return c.json({ success: false, error: err?.message }, 500);
   }
-
-  const { NotificationService } = await import('../services/notification');
-  await NotificationService.createNotification(c.env.DB, {
-    user_type: 'merchant',
-    user_id: store.user_id,
-    store_id: store.id,
-    title: 'تم تفعيل باقة المتجر بنجاح! 👑',
-    message: `تم تفعيل باقة متجرك (${store.plan_name}) لمدة ${durationDays} أيام بنجاح.`,
-    link: '/dashboard/subscription',
-    type: 'subscription'
-  });
-
-  return c.json({ success: true, message: `تم تفعيل باقة المتجر بنجاح لمدة ${durationDays} أيام` });
 });
 
 admin.put('/stores/:id/plan', async (c) => {
@@ -1206,11 +1203,19 @@ admin.post('/stores/:id/extend', async (c) => {
   try {
     const storeId = parseInt(c.req.param('id'));
     const store = await c.env.DB.prepare('SELECT subscription_ends_at FROM stores WHERE id = ?').bind(storeId).first() as any;
-    const base = store?.subscription_ends_at ? new Date(store.subscription_ends_at) : new Date();
-    if (base < new Date()) base.setTime(Date.now());
+    if (!store) return c.json({ success: false, message: 'المتجر غير موجود' }, 404);
+
+    const base = (store.subscription_ends_at && new Date(store.subscription_ends_at) > new Date())
+      ? new Date(store.subscription_ends_at)
+      : new Date();
+
     base.setMonth(base.getMonth() + 1);
-    await c.env.DB.prepare("UPDATE stores SET subscription_ends_at = ?, subscription_status = 'active', updated_at = CURRENT_TIMESTAMP WHERE id = ?").bind(base.toISOString(), storeId).run();
-    return c.json({ message: 'تم تمديد الاشتراك' });
+
+    await c.env.DB.prepare(
+      "UPDATE stores SET subscription_ends_at = ?, subscription_status = 'active', status = 'active', is_active = 1, updated_at = datetime('now') WHERE id = ?"
+    ).bind(base.toISOString(), storeId).run();
+
+    return c.json({ success: true, message: 'تم تمديد الاشتراك شهر إضافي بنجاح', ends_at: base.toISOString() });
   } catch (err: any) {
     console.error('[ADMIN] extend subscription error:', err?.message);
     return c.json({ success: false, error: err?.message }, 500);
