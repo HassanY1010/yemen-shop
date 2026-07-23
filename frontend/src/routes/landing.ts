@@ -4,6 +4,7 @@
 import { Hono } from 'hono';
 import { Bindings, Variables } from '../types/index';
 import { baseLayout } from '../utils/templates';
+import { getImageUrl, DEFAULT_STORE_LOGO } from '../utils/helpers';
 
 const landing = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
@@ -44,6 +45,24 @@ landing.get('/', async (c) => {
     ];
   }
 
+  let stores: any[] = [];
+  try {
+    if (c.env?.DB) {
+      const res = await c.env.DB.prepare(`
+        SELECT s.*, 
+               (SELECT COUNT(*) FROM products WHERE store_id = s.id) as products_count
+        FROM stores s
+        WHERE s.status = 'active' AND (s.is_active = 1 OR s.is_active IS NULL)
+        ORDER BY s.created_at DESC
+      `).all() as any;
+      if (res?.results) {
+        stores = res.results;
+      }
+    }
+  } catch (e) {
+    console.error('[LANDING] Error fetching active stores:', e);
+  }
+
   return c.html(baseLayout(`${platformName} - أنشئ متجرك في دقائق`, `
   <!-- Navbar -->
   <nav class="bg-white/95 backdrop-blur-sm sticky top-0 z-50 border-b border-gray-100 shadow-sm">
@@ -55,7 +74,7 @@ landing.get('/', async (c) => {
         <span class="text-2xl font-black text-gray-800">${platformName}</span>
       </div>
       <div class="hidden md:flex items-center gap-6 text-sm font-medium text-gray-600">
-        <a href="#features" class="hover:text-primary-600 transition-colors">المميزات</a>
+        <a href="#stores" class="hover:text-primary-600 transition-colors">المتاجر</a>
         <a href="#pricing" class="hover:text-primary-600 transition-colors">الأسعار</a>
         <a href="#how" class="hover:text-primary-600 transition-colors">كيف يعمل</a>
       </div>
@@ -89,10 +108,10 @@ landing.get('/', async (c) => {
           <i class="fas fa-rocket text-primary-500"></i>
           ابدأ تجربتك المجانية
         </a>
-        <a href="#pricing"
+        <a href="#stores"
            class="border-2 border-white/50 text-white hover:bg-white/10 font-semibold px-8 py-4 rounded-2xl text-lg transition-all backdrop-blur-sm flex items-center justify-center gap-2">
-          <i class="fas fa-eye"></i>
-          عرض الأسعار
+          <i class="fas fa-store"></i>
+          استكشف المتاجر
         </a>
       </div>
       <p class="mt-5 text-purple-200 text-sm">بدون بطاقة ائتمان • مجاني للأبد • لا حاجة للبرمجة</p>
@@ -108,7 +127,7 @@ landing.get('/', async (c) => {
     <div class="max-w-7xl mx-auto px-4 sm:px-6">
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-8 text-center">
         ${[
-          { num: '500+', label: 'متجر نشط' },
+          { num: stores.length ? stores.length + '+' : '500+', label: 'متجر نشط' },
           { num: '50K+', label: 'طلب شهرياً' },
           { num: '99.9%', label: 'وقت التشغيل' },
           { num: '24/7', label: 'دعم فني' },
@@ -122,34 +141,86 @@ landing.get('/', async (c) => {
     </div>
   </section>
 
-  <!-- Features -->
-  <section id="features" class="py-24 px-4 bg-gray-50">
+  <!-- Dynamic Active Stores Section -->
+  <section id="stores" class="py-24 px-4 bg-gray-50 dark:bg-slate-900/50">
     <div class="max-w-7xl mx-auto">
       <div class="text-center mb-16">
-        <h2 class="text-4xl font-black text-gray-800 mb-4">كل ما تحتاجه في ${platformName}</h2>
-        <p class="text-xl text-gray-500 max-w-2xl mx-auto">أدوات متكاملة لإدارة متجرك الإلكتروني من صورة المنتج حتى تسليم الطلب</p>
-      </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        ${[
-          { icon: 'box', color: 'bg-blue-500', title: 'إدارة المنتجات', desc: 'إضافة وتعديل المنتجات مع صور متعددة وأسعار مخصصة وإدارة المخزون بكل سهولة' },
-          { icon: 'shopping-bag', color: 'bg-green-500', title: 'إدارة الطلبات', desc: 'استلام وتتبع الطلبات في الوقت الفعلي مع تحديث حالة الطلب وتواصل مع العملاء' },
-          { icon: 'users', color: 'bg-purple-500', title: 'إدارة العملاء', desc: 'قاعدة بيانات كاملة للعملاء مع تتبع تاريخ الطلبات والإنفاق لكل عميل' },
-          { icon: 'chart-line', color: 'bg-orange-500', title: 'تقارير وإحصائيات', desc: 'لوحة تحليلية شاملة لتتبع مبيعاتك ونمو متجرك وأداء المنتجات' },
-          { icon: 'palette', color: 'bg-pink-500', title: 'تخصيص المظهر', desc: 'خصص ألوان وشعار متجرك ليعكس هوية علامتك التجارية بشكل احترافي' },
-          { icon: 'shield-alt', color: 'bg-indigo-500', title: 'أمان وعزل البيانات', desc: 'نظام Multi-Tenant متطور يضمن عزل بيانات كل متجر بشكل آمن وكامل' },
-          { icon: 'ticket-alt', color: 'bg-yellow-500', title: 'كوبونات الخصم', desc: 'إنشاء وإدارة كوبونات خصم متنوعة لجذب العملاء وزيادة المبيعات' },
-          { icon: 'mobile-alt', color: 'bg-teal-500', title: 'تصميم متجاوب', desc: 'متجرك يعمل بشكل مثالي على جميع الأجهزة من الجوال حتى الحاسوب' },
-          { icon: 'share-alt', color: 'bg-red-500', title: 'روابط التواصل', desc: 'ربط متجرك بحسابات التواصل الاجتماعي وواتساب للتواصل المباشر مع العملاء' },
-        ].map(feat => `
-        <div class="bg-white rounded-2xl p-6 shadow-sm card-hover border border-gray-100">
-          <div class="w-14 h-14 ${feat.color} rounded-2xl flex items-center justify-center text-white text-2xl mb-5">
-            <i class="fas fa-${feat.icon}"></i>
-          </div>
-          <h3 class="font-bold text-gray-800 text-lg mb-2">${feat.title}</h3>
-          <p class="text-gray-500 text-sm leading-relaxed">${feat.desc}</p>
+        <div class="inline-flex items-center gap-2 bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 text-xs font-bold px-4 py-1.5 rounded-full mb-3 border border-primary-200 dark:border-primary-800">
+          <i class="fas fa-store text-xs"></i> دليل المتاجر الإلكترونية
         </div>
-        `).join('')}
+        <h2 class="text-4xl font-black text-gray-800 dark:text-white mb-4">المتاجر المنشأة على المنصة</h2>
+        <p class="text-xl text-gray-500 dark:text-gray-400 max-w-2xl mx-auto">استكشف المتاجر الإلكترونية النشطة وقم بزيارتها وتسوق منها مباشرة</p>
       </div>
+
+      ${stores.length > 0 ? `
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        ${stores.map((store: any) => {
+          const logoUrl = getImageUrl(store.logo, DEFAULT_STORE_LOGO);
+          const storeUrl = `/store/${store.slug}`;
+          const storeDesc = store.description || store.tagline || `متجر إلكتروني متكامل عبر ${platformName}`;
+          const primaryColor = store.primary_color || '#4F46E5';
+
+          return `
+          <div class="bg-white dark:bg-slate-800 rounded-3xl border border-gray-100 dark:border-slate-700/80 shadow-sm card-hover flex flex-col justify-between overflow-hidden relative group transition-all duration-300">
+            <!-- Card Top Header / Banner -->
+            <div class="h-28 relative overflow-hidden flex items-center justify-center" style="background: linear-gradient(135deg, ${primaryColor}dd, ${primaryColor}88);">
+              <div class="absolute inset-0 opacity-20 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]"></div>
+              <span class="absolute top-3 left-3 bg-white/20 backdrop-blur-md text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5 border border-white/30 shadow-sm">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> نشط
+              </span>
+              <span class="absolute top-3 right-3 bg-black/20 backdrop-blur-md text-white text-xs font-semibold px-2.5 py-1 rounded-full">
+                <i class="fas fa-box ml-1 text-xs"></i> ${store.products_count || 0} منتج
+              </span>
+            </div>
+
+            <!-- Logo Avatar Floating -->
+            <div class="px-6 -mt-10 mb-4 relative z-10 flex items-end justify-between">
+              <a href="${storeUrl}" class="block group-hover:scale-105 transition-transform">
+                <img src="${logoUrl}" alt="${store.name}" 
+                     class="w-20 h-20 rounded-2xl border-4 border-white dark:border-slate-800 object-cover shadow-lg bg-white" 
+                     onerror="this.onerror=null; this.src='${DEFAULT_STORE_LOGO}';">
+              </a>
+            </div>
+
+            <!-- Store Info Body -->
+            <div class="px-6 pb-6 flex-1 flex flex-col justify-between">
+              <div>
+                <a href="${storeUrl}" class="block group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+                  <h3 class="font-black text-gray-900 dark:text-white text-lg leading-snug line-clamp-1 mb-1">${store.name}</h3>
+                </a>
+                <p class="text-xs font-mono text-primary-600 dark:text-primary-400 dir-ltr text-right mb-3 opacity-90 truncate">
+                  /store/${store.slug}
+                </p>
+                <p class="text-gray-600 dark:text-gray-400 text-xs leading-relaxed line-clamp-2 mb-6 min-h-[32px]">
+                  ${storeDesc}
+                </p>
+              </div>
+
+              <!-- Visit Button -->
+              <a href="${storeUrl}" 
+                 class="w-full inline-flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-700 text-white font-bold py-3 px-4 rounded-xl text-sm transition-all shadow-md hover:shadow-primary-200 group-hover:translate-y-[-2px]">
+                <span>زيارة المتجر</span>
+                <i class="fas fa-arrow-left text-xs transition-transform group-hover:-translate-x-1"></i>
+              </a>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+      ` : `
+      <!-- Empty State if no active stores exist -->
+      <div class="text-center py-16 bg-white dark:bg-slate-800 rounded-3xl border border-gray-100 dark:border-slate-700/80 p-8 max-w-lg mx-auto shadow-sm">
+        <div class="w-20 h-20 bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-full flex items-center justify-center mx-auto text-3xl mb-4">
+          <i class="fas fa-store-slash"></i>
+        </div>
+        <h3 class="text-xl font-bold text-gray-800 dark:text-white mb-2">لا توجد متاجر متاحة حالياً</h3>
+        <p class="text-gray-500 dark:text-gray-400 text-sm mb-6 leading-relaxed">
+          كن أول من ينشئ متجره الإلكتروني عبر المنصة وابدأ بعرض منتجاتك واستقبال الطلبات اليوم!
+        </p>
+        <a href="/auth/register" class="inline-flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white font-bold px-6 py-3 rounded-xl text-sm transition-all shadow-lg">
+          <i class="fas fa-plus-circle"></i> أنشئ متجرك الآن
+        </a>
+      </div>
+      `}
     </div>
   </section>
 
@@ -246,7 +317,7 @@ landing.get('/', async (c) => {
         <div>
           <h4 class="font-bold mb-4 text-gray-200">روابط سريعة</h4>
           <ul class="space-y-2 text-sm text-gray-400">
-            <li><a href="#features" class="hover:text-white transition-colors">المميزات</a></li>
+            <li><a href="#stores" class="hover:text-white transition-colors">المتاجر</a></li>
             <li><a href="#pricing" class="hover:text-white transition-colors">الأسعار</a></li>
             <li><a href="/auth/register" class="hover:text-white transition-colors">إنشاء حساب</a></li>
             <li><a href="/auth/login" class="hover:text-white transition-colors">تسجيل الدخول</a></li>
