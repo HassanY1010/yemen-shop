@@ -780,6 +780,22 @@ app.post('/api/admin/stores/:id/extend', async (c) => {
   }
 })
 
+app.put('/api/admin/settings', async (c) => {
+  try {
+    const body = await c.req.json() as Record<string, string>
+    for (const [key, value] of Object.entries(body)) {
+      await c.env.DB.prepare(`
+        INSERT INTO platform_settings (key, value, updated_at)
+        VALUES (?, ?, datetime('now'))
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')
+      `).bind(key, String(value ?? '')).run()
+    }
+    return c.json({ success: true, message: 'تم حفظ إعدادات المنصة بنجاح ⚡' })
+  } catch (err: any) {
+    return c.json({ success: false, error: err?.message }, 500)
+  }
+})
+
 // ─── Public Store API ──────────────────────────────────────────
 app.get('/api/store/:slug/products', async (c) => {
   const slug = c.req.param('slug')

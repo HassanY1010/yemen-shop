@@ -1225,6 +1225,25 @@ admin.post('/stores/:id/extend', async (c) => {
 // ─── Admin Settings Page ──────────────────────────────────────
 admin.get('/settings', async (c) => {
   const user = c.get('user')!;
+
+  // Fetch current platform settings from database
+  let settingsMap: Record<string, string> = {};
+  try {
+    const settingsRows = await c.env.DB.prepare('SELECT key, value FROM platform_settings').all() as any;
+    if (settingsRows?.results) {
+      for (const row of settingsRows.results) {
+        settingsMap[row.key] = row.value;
+      }
+    }
+  } catch (e) {}
+
+  const platformName = settingsMap['platform_name'] || 'منصة سوق';
+  const supportEmail = settingsMap['support_email'] || 'support@platform.com';
+  const supportWhatsapp = settingsMap['support_whatsapp'] || '+967776461892';
+  const defaultCurrency = settingsMap['default_currency'] || 'YER';
+  const allowRegistrations = settingsMap['allow_registrations'] !== 'false' ? 'true' : 'false';
+  const resendApiKey = settingsMap['resend_api_key'] || '';
+  const senderEmail = settingsMap['sender_email'] || 'noreply@platform.com';
   
   return c.html(dashboardLayout('إعدادات المنصة', `
   <div class="max-w-4xl mx-auto space-y-6">
@@ -1241,28 +1260,33 @@ admin.get('/settings', async (c) => {
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label class="block text-sm font-medium text-sub mb-1.5">اسم المنصة</label>
-            <input type="text" id="platformName" value="منصة سوق" required
+            <input type="text" id="platformName" value="${platformName}" required
               class="w-full px-4 py-2.5 border border-std rounded-xl text-sm bg-page text-main focus:ring-2 focus:ring-primary-300 outline-none">
           </div>
           <div>
             <label class="block text-sm font-medium text-sub mb-1.5">بريد الدعم الفني الرسمي</label>
-            <input type="email" id="supportEmail" value="support@platform.com" required
+            <input type="email" id="supportEmail" value="${supportEmail}" required
+              class="w-full px-4 py-2.5 border border-std rounded-xl text-sm bg-page text-main focus:ring-2 focus:ring-primary-300 outline-none" dir="ltr">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-sub mb-1.5">رقم واتساب الدعم الفني</label>
+            <input type="text" id="supportWhatsapp" value="${supportWhatsapp}" required
               class="w-full px-4 py-2.5 border border-std rounded-xl text-sm bg-page text-main focus:ring-2 focus:ring-primary-300 outline-none" dir="ltr">
           </div>
           <div>
             <label class="block text-sm font-medium text-sub mb-1.5">العملة الافتراضية للمنصة</label>
             <select id="defaultCurrency" class="w-full px-4 py-2.5 border border-std rounded-xl text-sm bg-page text-main focus:ring-2 focus:ring-primary-300 outline-none">
-              <option value="SAR" selected>ريال سعودي (SAR)</option>
-              <option value="AED">درهم إماراتي (AED)</option>
-              <option value="KWD">دينار كويتي (KWD)</option>
-              <option value="USD">دولار أمريكي (USD)</option>
+              <option value="YER" ${defaultCurrency === 'YER' ? 'selected' : ''}>ريال يمني (YER)</option>
+              <option value="SAR" ${defaultCurrency === 'SAR' ? 'selected' : ''}>ريال سعودي (SAR)</option>
+              <option value="AED" ${defaultCurrency === 'AED' ? 'selected' : ''}>درهم إماراتي (AED)</option>
+              <option value="USD" ${defaultCurrency === 'USD' ? 'selected' : ''}>دولار أمريكي (USD)</option>
             </select>
           </div>
           <div>
             <label class="block text-sm font-medium text-sub mb-1.5">حالة تسجيل التجار الجدد</label>
             <select id="allowRegistrations" class="w-full px-4 py-2.5 border border-std rounded-xl text-sm bg-page text-main focus:ring-2 focus:ring-primary-300 outline-none">
-              <option value="true" selected>مفتوح (يسمح للتجار بالاشتراك تلقائياً)</option>
-              <option value="false">مغلق (تحت الصيانة / بدعوات فقط)</option>
+              <option value="true" ${allowRegistrations === 'true' ? 'selected' : ''}>مفتوح (يسمح للتجار بالاشتراك تلقائياً)</option>
+              <option value="false" ${allowRegistrations === 'false' ? 'selected' : ''}>مغلق (تحت الصيانة / بدعوات فقط)</option>
             </select>
           </div>
         </div>
@@ -1272,19 +1296,19 @@ admin.get('/settings', async (c) => {
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-medium text-sub mb-1.5">مفتاح API الخاص بـ Resend</label>
-              <input type="password" id="resendApiKey" placeholder="re_************************" 
+              <input type="password" id="resendApiKey" value="${resendApiKey}" placeholder="re_************************" 
                 class="w-full px-4 py-2.5 border border-std rounded-xl text-sm bg-page text-main focus:ring-2 focus:ring-primary-300 outline-none" dir="ltr">
             </div>
             <div>
               <label class="block text-sm font-medium text-sub mb-1.5">بريد الإرسال المعتمد (Sender Email)</label>
-              <input type="text" id="senderEmail" value="noreply@platform.com"
+              <input type="text" id="senderEmail" value="${senderEmail}"
                 class="w-full px-4 py-2.5 border border-std rounded-xl text-sm bg-page text-main focus:ring-2 focus:ring-primary-300 outline-none" dir="ltr">
             </div>
           </div>
         </div>
 
         <div class="border-t border-std pt-5 mt-5 flex justify-end">
-          <button type="submit" class="px-6 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl text-sm shadow-md transition-colors">
+          <button type="submit" id="saveSettingsBtn" class="px-6 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl text-sm shadow-md transition-colors">
             <i class="fas fa-save ml-1.5"></i>حفظ الإعدادات
           </button>
         </div>
@@ -1293,12 +1317,51 @@ admin.get('/settings', async (c) => {
   </div>
   `, user, undefined, 'settings', `
   <script>
-    function saveSettings(e) {
+    async function saveSettings(e) {
       e.preventDefault();
-      showToast('تم حفظ إعدادات المنصة بنجاح (محاكاة)', 'success');
+      const submitBtn = document.getElementById('saveSettingsBtn');
+      if (submitBtn) submitBtn.disabled = true;
+
+      const payload = {
+        platform_name: document.getElementById('platformName').value,
+        support_email: document.getElementById('supportEmail').value,
+        support_whatsapp: document.getElementById('supportWhatsapp').value,
+        default_currency: document.getElementById('defaultCurrency').value,
+        allow_registrations: document.getElementById('allowRegistrations').value,
+        resend_api_key: document.getElementById('resendApiKey').value,
+        sender_email: document.getElementById('senderEmail').value,
+      };
+
+      try {
+        const res = await axios.put('/api/admin/settings', payload);
+        showToast(res.data?.message || 'تم حفظ إعدادات المنصة بنجاح ⚡', 'success');
+        setTimeout(() => location.reload(), 600);
+      } catch (err) {
+        showToast(err.response?.data?.message || err.response?.data?.error || 'خطأ في حفظ الإعدادات', 'error');
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
+      }
     }
+    window.saveSettings = saveSettings;
   </script>
   `));
+});
+
+admin.put('/settings', async (c) => {
+  try {
+    const body = await c.req.json() as Record<string, string>;
+    for (const [key, value] of Object.entries(body)) {
+      await c.env.DB.prepare(`
+        INSERT INTO platform_settings (key, value, updated_at)
+        VALUES (?, ?, datetime('now'))
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')
+      `).bind(key, String(value ?? '')).run();
+    }
+    return c.json({ success: true, message: 'تم حفظ إعدادات المنصة بنجاح ⚡' });
+  } catch (err: any) {
+    console.error('[ADMIN] PUT /settings error:', err?.message);
+    return c.json({ success: false, error: err?.message }, 500);
+  }
 });
 
 export default admin;
