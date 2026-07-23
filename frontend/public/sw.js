@@ -3,7 +3,7 @@
 // Cache-first for static assets, network-first for API
 // ============================================
 
-const CACHE_VERSION = 'souq-v1';
+const CACHE_VERSION = 'souq-v2';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const API_CACHE = `${CACHE_VERSION}-api`;
 
@@ -55,7 +55,9 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   if (url.pathname.startsWith('/auth/')) return;
   
-  // Skip storefront dynamic pages and uploaded assets
+  // Skip admin, storefront dynamic pages, and uploaded assets
+  if (url.pathname.startsWith('/admin')) return;
+  if (url.pathname.startsWith('/api/admin')) return;
   if (url.pathname.startsWith('/store/')) return;
   if (url.pathname.startsWith('/uploads/')) return;
   if (url.pathname === '/') return;
