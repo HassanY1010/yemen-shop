@@ -194,10 +194,7 @@ function storeLayout(
     `;
   }
 
-  const faviconTag = storeData.favicon 
-    ? `<link rel="icon" href="${storeData.favicon}"><link rel="shortcut icon" href="${storeData.favicon}"><link rel="apple-touch-icon" href="${storeData.favicon}">`
-    : '';
-  const combinedHead = trackingCodes + faviconTag + headExtra;
+  const combinedHead = trackingCodes + headExtra;
 
   return baseLayout(storeName, `
   <!-- Store Header -->
@@ -207,7 +204,7 @@ function storeLayout(
         <!-- Logo -->
         <a href="/store/${storeData.slug}" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
           ${storeData.logo 
-            ? `<img src="${getImageUrl(storeData.logo, DEFAULT_STORE_LOGO)}" alt="${storeName}" class="w-10 h-10 object-cover rounded-xl" onerror="this.onerror=null;this.src='${DEFAULT_STORE_LOGO}';">` 
+            ? `<img src="${getImageUrl(storeData.logo, DEFAULT_STORE_LOGO)}" alt="${storeName}" class="w-10 h-10 object-cover rounded-xl" onerror="handleImgError(this, 'logo')">` 
             : `<div class="w-10 h-10 rounded-xl text-white flex items-center justify-center font-bold text-lg" style="background: ${primary};">${storeName[0]}</div>`
           }
           <span class="font-bold text-main text-lg">${storeName}</span>
@@ -294,9 +291,10 @@ function storeLayout(
       <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div>
           <div class="flex items-center gap-3 mb-4">
-            <div class="w-10 h-10 rounded-xl text-white flex items-center justify-center font-bold" style="background: ${primary};">
-              ${storeName[0]}
-            </div>
+            ${storeData.logo 
+              ? `<img src="${getImageUrl(storeData.logo, DEFAULT_STORE_LOGO)}" alt="${storeName}" class="w-10 h-10 object-cover rounded-xl" onerror="handleImgError(this, 'logo')">`
+              : `<div class="w-10 h-10 rounded-xl text-white flex items-center justify-center font-bold" style="background: ${primary};">${storeName[0]}</div>`
+            }
             <span class="font-bold text-lg">${storeName}</span>
           </div>
           <p class="text-mute text-sm leading-relaxed">${storeData.description || 'مرحباً بك في متجرنا'}</p>
@@ -839,8 +837,10 @@ function storeLayout(
     updateCartUI();
   </script>
   ${scripts ? `<script>\n${scripts}\n  </script>` : ''}
-    `
-  }, { headExtra: combinedHead });
+    `,
+    headExtra: combinedHead,
+    favicon: storeData.favicon
+  });
 }
 
 // ─── Store Home Page ──────────────────────────────────────────

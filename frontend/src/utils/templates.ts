@@ -1,6 +1,4 @@
-// ============================================
-// Shared HTML Layout Templates — with Dark/Light Mode
-// ============================================
+import { getImageUrl, DEFAULT_STORE_LOGO } from './helpers';
 
 export function baseLayout(
   title: string,
@@ -11,9 +9,15 @@ export function baseLayout(
     bodyClass?: string;
     dir?: 'rtl' | 'ltr';
     headExtra?: string;
+    favicon?: string;
   } = {}
 ): string {
-  const { scripts = '', styles = '', bodyClass = '', dir = 'rtl', headExtra = '' } = options;
+  const { scripts = '', styles = '', bodyClass = '', dir = 'rtl', headExtra = '', favicon = '' } = options;
+
+  const faviconUrl = favicon ? getImageUrl(favicon) : '';
+  const faviconHtml = faviconUrl
+    ? `<link rel="icon" href="${faviconUrl}"><link rel="shortcut icon" href="${faviconUrl}"><link rel="apple-touch-icon" href="${faviconUrl}">`
+    : `<link rel="icon" type="image/svg+xml" href="/favicon.svg"><link rel="shortcut icon" href="/favicon.ico"><link rel="apple-touch-icon" href="/favicon.svg">`;
 
   return `<!DOCTYPE html>
 <html lang="ar" dir="${dir}" class="light">
@@ -21,9 +25,7 @@ export function baseLayout(
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${title} - منصة سوق</title>
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link rel="shortcut icon" href="/favicon.ico">
-  <link rel="apple-touch-icon" href="/favicon.svg">
+  ${faviconHtml}
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -446,10 +448,10 @@ export function dashboardLayout(
       <!-- Logo -->
       <div class="p-5 border-b border-std flex items-center justify-between" style="background: linear-gradient(135deg, ${sidebarColor}20, ${sidebarColor}08);">
         <div class="flex items-center gap-3 min-w-0">
-          <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white text-lg font-bold shadow-lg flex-shrink-0"
-               style="background: linear-gradient(135deg, ${sidebarColor}, ${sidebarColor}cc);">
-            ${isAdmin ? '<i class="fas fa-shield-alt text-sm"></i>' : `<span>${(store?.name?.[0] || 'م')}</span>`}
-          </div>
+          ${!isAdmin && store?.logo
+            ? `<img src="${getImageUrl(store.logo, DEFAULT_STORE_LOGO)}" alt="${store?.name || 'logo'}" class="w-10 h-10 object-cover rounded-xl flex-shrink-0" onerror="handleImgError(this, 'logo')">`
+            : `<div class="w-10 h-10 rounded-xl flex items-center justify-center text-white text-lg font-bold shadow-lg flex-shrink-0" style="background: linear-gradient(135deg, ${sidebarColor}, ${sidebarColor}cc);">${isAdmin ? '<i class="fas fa-shield-alt text-sm"></i>' : `<span>${(store?.name?.[0] || 'م')}</span>`}</div>`
+          }
           <div class="min-w-0">
             <h2 class="font-bold text-main text-sm leading-tight truncate">${isAdmin ? 'منصة سوق' : (store?.name || 'متجري')}</h2>
             <p class="text-xs text-mute">${isAdmin ? 'لوحة الإدارة' : 'لوحة التحكم'}</p>
