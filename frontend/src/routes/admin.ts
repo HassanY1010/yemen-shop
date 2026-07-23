@@ -347,8 +347,11 @@ admin.get('/stores/:id', async (c) => {
 
   const [storeData, storeOrders, storeProducts, storeCustomers, plans] = await Promise.all([
     c.env.DB.prepare(`
-      SELECT s.*, u.name as owner_name, u.email as owner_email, p.name as plan_name, p.slug as plan_slug, p.price as plan_price
-      FROM stores s JOIN users u ON s.user_id = u.id JOIN plans p ON s.plan_id = p.id WHERE s.id = ?
+      SELECT s.*, u.name as owner_name, u.email as owner_email, 
+             COALESCE(p.name, 'مجاني') as plan_name, 
+             COALESCE(p.slug, 'free') as plan_slug, 
+             COALESCE(p.price, 0) as plan_price
+      FROM stores s JOIN users u ON s.user_id = u.id LEFT JOIN plans p ON s.plan_id = p.id WHERE s.id = ?
     `).bind(storeId).first() as Promise<any>,
     c.env.DB.prepare('SELECT * FROM orders WHERE store_id = ? ORDER BY created_at DESC LIMIT 10').bind(storeId).all(),
     c.env.DB.prepare("SELECT COUNT(*) as count FROM products WHERE store_id = ? AND status = 'active'").bind(storeId).first() as Promise<any>,
@@ -497,11 +500,14 @@ admin.get('/stores/:id', async (c) => {
     async function changePlan(planId) {
       if (!confirm('هل تريد تغيير الباقة؟')) return;
       try {
-        await axios.put('/api/admin/stores/${storeData.id}/plan', { plan_id: planId });
-        showToast('تم تغيير الباقة بنجاح', 'success');
-        setTimeout(() => location.reload(), 800);
-      } catch(err) { showToast('خطأ', 'error'); }
+        const res = await axios.put('/api/admin/stores/${storeData.id}/plan', { plan_id: planId });
+        showToast(res.data?.message || 'تم تغيير الباقة بنجاح', 'success');
+        setTimeout(() => location.reload(), 600);
+      } catch(err) {
+        showToast(err.response?.data?.message || err.response?.data?.error || 'خطأ في تغيير الباقة', 'error');
+      }
     }
+    window.changePlan = changePlan;
     async function toggleStoreStatus(storeId, currentStatus) {
       const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
       if (!confirm(newStatus === 'suspended' ? 'هل تريد إيقاف هذا المتجر؟' : 'هل تريد تفعيل هذا المتجر؟')) return;
@@ -1138,31 +1144,33 @@ admin.post('/stores/:id/activate-subscription', async (c) => {
 });
 
 admin.put('/stores/:id/plan', async (c) => {
-  const { plan_id } = await c.req.json() as any;
-  const storeId = parseInt(c.req.param('id'));
-  const plan = await c.env.DB.prepare('SELECT * FROM plans WHERE id = ?').bind(plan_id).first() as any;
-  if (!plan) return c.json({ message: 'الباقة غير موجودة' }, 404);
-
-  const days = plan.duration_days || (plan.slug === 'free' || plan.price === 0 ? 5 : 30);
-  const startsAt = new Date();
-  const endsAt = new Date();
-  endsAt.setDate(endsAt.getDate() + days);
-
   try {
-    await c.env.DB.prepare(`
-      UPDATE stores 
-      SET plan_id = ?, subscription_status = 'active', status = 'active', subscription_starts_at = ?, subscription_ends_at = ?, updated_at = CURRENT_TIMESTAMP 
-      WHERE id = ?
-    `).bind(plan_id, startsAt.toISOString(), endsAt.toISOString(), storeId).run();
-  } catch (e) {
-    await c.env.DB.prepare(`
-      UPDATE stores 
-      SET plan_id = ?, subscription_status = 'active', status = 'active', subscription_starts_at = ?, subscription_ends_at = ?
-      WHERE id = ?
-    `).bind(plan_id, startsAt.toISOString(), endsAt.toISOString(), storeId).run();
-  }
+    const { plan_id } = await c.req.json() as any;
+    const storeId = parseInt(c.req.param('id'));
+    const parsedPlanId = parseInt(plan_id);
 
-  return c.json({ success: true, message: `تم تغيير الباقة إلى (${plan.name}) وتفعيلها لمدة ${days} أيام بنجاح` });
+    const plan = await c.env.DB.prepare(
+      'SELECT * FROM plans WHERE id = ? OR slug = ?'
+    ).bind(isNaN(parsedPlanId) ? -1 : parsedPlanId, String(plan_id)).first() as any;
+
+    if (!plan) return c.json({ success: false, message: 'الباقة غير موجودة' }, 404);
+
+    const days = plan.duration_days || (plan.slug === 'free' || plan.price === 0 ? 365 : 30);
+    const startsAt = new Date();
+    const endsAt = new Date();
+    endsAt.setDate(endsAt.getDate() + days);
+
+    await c.env.DB.prepare(`
+      UPDATE stores 
+      SET plan_id = ?, subscription_status = 'active', status = 'active', is_active = 1, subscription_starts_at = datetime('now'), subscription_ends_at = ?, updated_at = datetime('now') 
+      WHERE id = ?
+    `).bind(plan.id, endsAt.toISOString(), storeId).run();
+
+    return c.json({ success: true, message: `تم تغيير الباقة إلى (${plan.name}) وتفعيلها بنجاح`, plan_name: plan.name });
+  } catch (err: any) {
+    console.error('[ADMIN] PUT stores/:id/plan error:', err?.message);
+    return c.json({ success: false, error: err?.message }, 500);
+  }
 });
 
 admin.put('/plans/:id', async (c) => {

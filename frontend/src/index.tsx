@@ -677,14 +677,31 @@ app.put('/api/admin/users/:id/status', async (c) => {
   return c.json({ message: 'تم التحديث' })
 })
 app.put('/api/admin/stores/:id/plan', async (c) => {
-  const { plan_id } = await c.req.json() as any
-  const storeId = parseInt(c.req.param('id'))
-  const plan = await c.env.DB.prepare('SELECT * FROM plans WHERE id = ?').bind(plan_id).first() as any
-  if (!plan) return c.json({ message: 'الباقة غير موجودة' }, 404)
-  const endsAt = new Date()
-  endsAt.setMonth(endsAt.getMonth() + 1)
-  await c.env.DB.prepare("UPDATE stores SET plan_id = ?, subscription_status = 'active', subscription_ends_at = ?, updated_at = datetime('now') WHERE id = ?").bind(plan_id, endsAt.toISOString(), storeId).run()
-  return c.json({ message: 'تم تغيير الباقة بنجاح' })
+  try {
+    const { plan_id } = await c.req.json() as any
+    const storeId = parseInt(c.req.param('id'))
+    const parsedPlanId = parseInt(plan_id)
+
+    const plan = await c.env.DB.prepare(
+      'SELECT * FROM plans WHERE id = ? OR slug = ?'
+    ).bind(isNaN(parsedPlanId) ? -1 : parsedPlanId, String(plan_id)).first() as any
+
+    if (!plan) return c.json({ success: false, message: 'الباقة غير موجودة' }, 404)
+
+    const days = plan.duration_days || (plan.slug === 'free' || plan.price === 0 ? 365 : 30)
+    const endsAt = new Date()
+    endsAt.setDate(endsAt.getDate() + days)
+
+    await c.env.DB.prepare(`
+      UPDATE stores 
+      SET plan_id = ?, subscription_status = 'active', status = 'active', is_active = 1, subscription_starts_at = datetime('now'), subscription_ends_at = ?, updated_at = datetime('now') 
+      WHERE id = ?
+    `).bind(plan.id, endsAt.toISOString(), storeId).run()
+
+    return c.json({ success: true, message: `تم تغيير الباقة إلى (${plan.name}) وتفعيلها بنجاح`, plan_name: plan.name })
+  } catch (err: any) {
+    return c.json({ success: false, error: err?.message }, 500)
+  }
 })
 app.put('/api/admin/plans/:id', async (c) => {
   const planId = parseInt(c.req.param('id'))
