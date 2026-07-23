@@ -21,11 +21,25 @@ export async function tenantMiddleware(c: AppContext, next: Next) {
   const store = c.get('store');
   if (!store) {
     // Try to load store from user
-    const userStore = await c.env.DB.prepare(
-      'SELECT * FROM stores WHERE user_id = ? LIMIT 1'
-    ).bind(user.id).first() as Store | null;
+    const userStore = await c.env.DB.prepare(`
+      SELECT s.*, p.name as plan_name, p.slug as plan_slug, p.price as plan_price, p.max_products as plan_max_products, p.max_orders as plan_max_orders, p.max_staff as plan_max_staff
+      FROM stores s
+      LEFT JOIN plans p ON s.plan_id = p.id
+      WHERE s.user_id = ? LIMIT 1
+    `).bind(user.id).first() as any;
 
     if (userStore) {
+      if (!userStore.plan) {
+        userStore.plan = {
+          id: userStore.plan_id,
+          name: userStore.plan_name || 'مجاني',
+          slug: userStore.plan_slug || 'free',
+          price: userStore.plan_price || 0,
+          max_products: userStore.plan_max_products,
+          max_orders: userStore.plan_max_orders,
+          max_staff: userStore.plan_max_staff
+        };
+      }
       c.set('store', userStore);
     }
   }

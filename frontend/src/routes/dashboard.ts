@@ -11,15 +11,32 @@ const dashboard = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 // ─── Helper: Get Store ────────────────────────────────────────
 async function getStore(dbOrContext: any, userId?: number) {
+  let store: any = null;
   if (dbOrContext && typeof dbOrContext.get === 'function') {
-    return dbOrContext.get('store');
+    store = dbOrContext.get('store');
   }
-  if (dbOrContext && typeof dbOrContext.prepare === 'function' && userId !== undefined) {
-    return dbOrContext.prepare(
-      'SELECT * FROM stores WHERE user_id = ? LIMIT 1'
-    ).bind(userId).first();
+  if (!store && dbOrContext && typeof dbOrContext.prepare === 'function' && userId !== undefined) {
+    store = await dbOrContext.prepare(`
+      SELECT s.*, p.name as plan_name, p.slug as plan_slug, p.price as plan_price
+      FROM stores s
+      LEFT JOIN plans p ON s.plan_id = p.id
+      WHERE s.user_id = ? LIMIT 1
+    `).bind(userId).first();
   }
-  return null;
+  if (store && (!store.plan || !store.plan.name)) {
+    if (dbOrContext && typeof dbOrContext.env?.DB?.prepare === 'function' && store.plan_id) {
+      try {
+        const planRow = await dbOrContext.env.DB.prepare('SELECT * FROM plans WHERE id = ?').bind(store.plan_id).first();
+        if (planRow) {
+          store.plan = planRow;
+        }
+      } catch (e) {}
+    }
+    if (!store.plan && store.plan_name) {
+      store.plan = { name: store.plan_name, slug: store.plan_slug, price: store.plan_price };
+    }
+  }
+  return store;
 }
 
 // ─── Stat Card Helper ─────────────────────────────────────────
@@ -98,7 +115,15 @@ dashboard.get('/', async (c) => {
 
   const topProducts = { results: analytics.top_products || [] };
 
-  const plan = store.plan || { name: 'مجاني' };
+  if (store && (!store.plan || !store.plan.name) && store.plan_id && c.env?.DB) {
+    try {
+      const planRow = await c.env.DB.prepare('SELECT * FROM plans WHERE id = ?').bind(store.plan_id).first() as any;
+      if (planRow) {
+        store.plan = planRow;
+      }
+    } catch (e) {}
+  }
+  const planName = store?.plan?.name || store?.plan_name || 'مجاني';
 
   return c.html(dashboardLayout('لوحة التحكم', `
   <!-- Welcome Banner -->
@@ -111,7 +136,7 @@ dashboard.get('/', async (c) => {
       <div>
         <p class="text-primary-200 text-sm font-medium">مرحباً بك 👋</p>
         <h2 class="text-2xl font-black mt-0.5">${store.name}</h2>
-        <p class="text-primary-200 text-sm mt-1">باقة: <strong class="text-white">${plan?.name || 'مجاني'}</strong></p>
+        <p class="text-primary-200 text-sm mt-1">باقة: <strong class="text-white">${planName}</strong></p>
       </div>
       <div class="flex gap-3">
         <a href="/store/${store.slug}" target="_blank"
