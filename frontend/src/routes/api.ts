@@ -15,6 +15,7 @@ const api = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 // ─── Middleware: Get Store ─────────────────────────────────────
 async function getStore(c: any) {
   const user = c.get('user');
+  if (!user) return null;
   return c.env.DB.prepare(
     'SELECT * FROM stores WHERE user_id = ? LIMIT 1'
   ).bind(user.id).first();
@@ -406,10 +407,12 @@ api.delete('/categories/:id', async (c) => {
 
 // ─── Orders API ───────────────────────────────────────────────
 const handleUpdateOrderStatus = async (c: any) => {
-  const store = await getStore(c) as any;
-  if (!store) return c.json({ error: 'Not found' }, 404);
+  const user = c.get('user');
+  if (!user) return c.json({ error: 'غير مصرح' }, 401);
 
   const orderId = parseInt(c.req.param('id'));
+  if (isNaN(orderId)) return c.json({ message: 'رقم الطلب غير صحيح' }, 400);
+
   const { status } = await c.req.json() as any;
 
   const validStatuses = ['pending', 'processing', 'completed', 'cancelled'];
@@ -417,29 +420,54 @@ const handleUpdateOrderStatus = async (c: any) => {
     return c.json({ message: 'حالة غير صحيحة' }, 400);
   }
 
-  if (status === 'completed') {
-    await c.env.DB.prepare(
-      "UPDATE orders SET status = ?, payment_status = 'paid', updated_at = datetime('now') WHERE id = ? AND store_id = ?"
-    ).bind(status, orderId, store.id).run();
-  } else {
-    await c.env.DB.prepare(
-      "UPDATE orders SET status = ?, updated_at = datetime('now') WHERE id = ? AND store_id = ?"
-    ).bind(status, orderId, store.id).run();
+  // Fetch order to verify existence
+  const existingOrder = await c.env.DB.prepare(
+    'SELECT * FROM orders WHERE id = ?'
+  ).bind(orderId).first() as any;
+
+  if (!existingOrder) {
+    return c.json({ message: 'الطلب غير موجود' }, 404);
   }
 
-  // Trigger order status update notifications in background
-  c.executionCtx.waitUntil(
-    NotificationService.notifyOrderStatusUpdate(c.env.DB, orderId, status, c.env)
-  );
+  // Check authorization (admin or store owner)
+  if (user.role !== 'admin') {
+    const store = await getStore(c) as any;
+    if (!store || existingOrder.store_id !== store.id) {
+      return c.json({ error: 'غير مصرح بالوصول إلى هذا الطلب' }, 403);
+    }
+  }
+
+  if (status === 'completed') {
+    await c.env.DB.prepare(
+      "UPDATE orders SET status = ?, payment_status = 'paid', updated_at = datetime('now') WHERE id = ?"
+    ).bind(status, orderId).run();
+  } else {
+    await c.env.DB.prepare(
+      "UPDATE orders SET status = ?, updated_at = datetime('now') WHERE id = ?"
+    ).bind(status, orderId).run();
+  }
+
+  // Trigger order status update notifications in background safely
+  if (c.executionCtx && typeof c.executionCtx.waitUntil === 'function') {
+    c.executionCtx.waitUntil(
+      NotificationService.notifyOrderStatusUpdate(c.env.DB, orderId, status, c.env)
+    );
+  } else {
+    NotificationService.notifyOrderStatusUpdate(c.env.DB, orderId, status, c.env).catch(err => {
+      console.error('Error in notifyOrderStatusUpdate:', err);
+    });
+  }
 
   return c.json({ success: true, message: 'تم تحديث حالة الطلب بنجاح' });
 };
 
 const handleUpdatePaymentStatus = async (c: any) => {
-  const store = await getStore(c) as any;
-  if (!store) return c.json({ error: 'Not found' }, 404);
+  const user = c.get('user');
+  if (!user) return c.json({ error: 'غير مصرح' }, 401);
 
   const orderId = parseInt(c.req.param('id'));
+  if (isNaN(orderId)) return c.json({ message: 'رقم الطلب غير صحيح' }, 400);
+
   const { payment_status } = await c.req.json() as any;
 
   const validStatuses = ['pending', 'paid', 'failed', 'refunded'];
@@ -447,9 +475,24 @@ const handleUpdatePaymentStatus = async (c: any) => {
     return c.json({ message: 'حالة دفع غير صحيحة' }, 400);
   }
 
+  const existingOrder = await c.env.DB.prepare(
+    'SELECT * FROM orders WHERE id = ?'
+  ).bind(orderId).first() as any;
+
+  if (!existingOrder) {
+    return c.json({ message: 'الطلب غير موجود' }, 404);
+  }
+
+  if (user.role !== 'admin') {
+    const store = await getStore(c) as any;
+    if (!store || existingOrder.store_id !== store.id) {
+      return c.json({ error: 'غير مصرح بالوصول إلى هذا الطلب' }, 403);
+    }
+  }
+
   await c.env.DB.prepare(
-    "UPDATE orders SET payment_status = ?, updated_at = datetime('now') WHERE id = ? AND store_id = ?"
-  ).bind(payment_status, orderId, store.id).run();
+    "UPDATE orders SET payment_status = ?, updated_at = datetime('now') WHERE id = ?"
+  ).bind(payment_status, orderId).run();
 
   return c.json({ success: true, message: 'تم تحديث حالة الدفع بنجاح' });
 };
