@@ -1241,21 +1241,25 @@ const handleUpload = async (c: any) => {
 
     const originalName = rawFile.name || 'image.jpg';
     const ext = (originalName.substring(originalName.lastIndexOf('.')) || '.jpg').toLowerCase();
-    const allowedExts = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.svg', '.ico'];
+    const allowedExts = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.ico'];
 
     if (!allowedExts.includes(ext)) {
-      return c.json({ success: false, message: 'نوع الملف غير مدعوم. الأنواع المسموحة: JPG, PNG, WEBP, GIF, SVG' }, 400);
+      return c.json({ success: false, message: 'نوع الملف غير مدعوم. الأنواع المسموحة فقط: JPG, PNG, WEBP, GIF, ICO' }, 400);
+    }
+
+    const buffer = await rawFile.arrayBuffer();
+    const fileBuffer = Buffer.from(buffer);
+
+    if (fileBuffer.length > 10 * 1024 * 1024) {
+      return c.json({ success: false, message: 'حجم الملف كبير جداً. الحد الأقصى المسموح هو 10 ميجابايت' }, 400);
     }
 
     let contentType = rawFile.type || 'image/jpeg';
     if (ext === '.png') contentType = 'image/png';
     else if (ext === '.webp') contentType = 'image/webp';
     else if (ext === '.gif') contentType = 'image/gif';
-    else if (ext === '.svg') contentType = 'image/svg+xml';
     else if (ext === '.ico') contentType = 'image/x-icon';
 
-    const buffer = await rawFile.arrayBuffer();
-    const fileBuffer = Buffer.from(buffer);
     const filename = `${crypto.randomUUID()}${ext}`;
 
     const supabaseUrl = getEnvVar(c, 'SUPABASE_URL', 'https://abybrwyyhuacyrexoibi.supabase.co');

@@ -148,8 +148,55 @@ app.use('*', async (c, next) => {
   return next();
 });
 
+// ─── Security Headers & Rate Limiting Middleware ──────────────
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+
+app.use('*', async (c, next) => {
+  await next();
+  c.res.headers.set('X-Frame-Options', 'SAMEORIGIN');
+  c.res.headers.set('X-Content-Type-Options', 'nosniff');
+  c.res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  c.res.headers.set('X-XSS-Protection', '1; mode=block');
+});
+
+// Rate Limiting for Auth & Sensitive Endpoints
+app.use('*', async (c, next) => {
+  const reqPath = c.req.path;
+  if (reqPath.includes('/login') || reqPath.includes('/register') || reqPath.includes('/password')) {
+    const clientIp = c.req.header('x-forwarded-for') || c.req.header('cf-connecting-ip') || 'client';
+    const key = `${clientIp}:${reqPath}`;
+    const now = Date.now();
+    const record = rateLimitMap.get(key) || { count: 0, resetTime: now + 60000 };
+
+    if (now > record.resetTime) {
+      record.count = 1;
+      record.resetTime = now + 60000;
+    } else {
+      record.count += 1;
+    }
+
+    rateLimitMap.set(key, record);
+
+    if (record.count > 15) {
+      return c.json({ success: false, message: 'تجاوزت حد المحاولات المسموح به. يرجى الانتظار دقيقة واحدة ثم المحاولة مجدداً.' }, 429);
+    }
+  }
+  return next();
+});
+
 // ─── Global Middleware ────────────────────────────────────────
-app.use('*', cors({ origin: '*', credentials: true }))
+app.use('*', cors({
+  origin: (origin) => {
+    if (!origin) return '*';
+    if (origin.includes('localhost') || origin.includes('127.0.0.1') || origin.endsWith('.onrender.com') || origin.endsWith('.pages.dev')) {
+      return origin;
+    }
+    return origin;
+  },
+  credentials: true,
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Cookie']
+}));
 app.use('*', authMiddleware)
 app.use('*', tenantMiddleware)
 
