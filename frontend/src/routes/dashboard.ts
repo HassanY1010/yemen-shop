@@ -2567,18 +2567,22 @@ dashboard.get('/settings', async (c) => {
       </div>
       
       <div class="bg-page p-4 rounded-xl border border-dashed border-std">
-        <h4 class="font-medium text-sm text-sub mb-3">إضافة حساب جديد</h4>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <h4 class="font-medium text-sm text-sub mb-3"><i class="fas fa-plus-circle text-primary-600 ml-1"></i> إضافة حساب بنكي أو محفظة جديدة</h4>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label class="block text-xs text-mute mb-1">اسم البنك / المحفظة</label>
-            <input type="text" id="newBankName" placeholder="مثال: بنك الراجحي" class="w-full px-3 py-2 border border-std rounded-lg text-sm focus:outline-none focus:border-primary-500">
+            <label class="block text-xs text-mute mb-1 font-semibold">اسم البنك / المحفظة *</label>
+            <input type="text" id="newBankName" placeholder="مثال: العمقي، الكريمي، القطيبي" class="w-full px-3 py-2 border border-std rounded-lg text-sm bg-card text-main focus:outline-none focus:border-primary-500">
           </div>
           <div>
-            <label class="block text-xs text-mute mb-1">رقم الحساب / الآيبان</label>
-            <input type="text" id="newBankAccount" placeholder="SA..." dir="ltr" class="w-full px-3 py-2 border border-std rounded-lg text-sm focus:outline-none focus:border-primary-500">
+            <label class="block text-xs text-mute mb-1 font-semibold">رقم الحساب / المحفظة *</label>
+            <input type="text" id="newBankAccount" placeholder="700XXXXXXX" dir="ltr" class="w-full px-3 py-2 border border-std rounded-lg text-sm bg-card text-main focus:outline-none focus:border-primary-500 font-mono">
+          </div>
+          <div>
+            <label class="block text-xs text-mute mb-1 font-semibold">اسم المستفيد / صاحب الحساب (اختياري)</label>
+            <input type="text" id="newBankHolder" placeholder="مثال: متجر التقنية" class="w-full px-3 py-2 border border-std rounded-lg text-sm bg-card text-main focus:outline-none focus:border-primary-500">
           </div>
         </div>
-        <button type="button" onclick="addBankAccount()" class="mt-3 bg-gray-100 hover:bg-gray-200 text-sub px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+        <button type="button" onclick="addBankAccount()" class="mt-3 bg-primary-50 text-primary-700 hover:bg-primary-100 border border-primary-200 px-4 py-2 rounded-lg text-sm font-bold transition-colors">
           <i class="fas fa-plus ml-1"></i> إضافة الحساب
         </button>
       </div>
@@ -2672,31 +2676,50 @@ dashboard.get('/settings', async (c) => {
       const list = document.getElementById('bankAccountsList');
       if (!list) return;
       if (STORE_BANK_ACCOUNTS.length === 0) {
-        list.innerHTML = '<p class="text-xs text-mute italic">لا توجد حسابات مضافة بعد.</p>';
+        list.innerHTML = '<p class="text-xs text-mute italic p-3 bg-page rounded-xl border border-std">لا توجد حسابات مضافة بعد.</p>';
         return;
       }
-      list.innerHTML = STORE_BANK_ACCOUNTS.map((b, i) => \`
-        <div class="flex items-center justify-between p-3 border border-std rounded-lg bg-white">
-          <div>
-            <p class="text-sm font-bold text-main">\${b.bank_name}</p>
-            <p class="text-xs text-mute font-mono mt-0.5">\${b.account_number}</p>
-          </div>
-          <button type="button" onclick="removeBankAccount(\${i})" class="text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors">
-            <i class="fas fa-trash-alt"></i>
-          </button>
-        </div>
-      \`).join('');
+      list.innerHTML = STORE_BANK_ACCOUNTS.map((b, i) => {
+        const bankName = b.bank_name || b.bank || b.name || 'حساب بنكي';
+        const accountNumber = b.account_number || b.number || b.account || '';
+        const holderName = b.holder_name || b.account_name || b.beneficiary || b.owner || '';
+        const cleanHolder = (holderName && holderName !== 'undefined' && holderName !== 'null') ? String(holderName).trim() : '';
+        const holderHtml = cleanHolder ? '<p class="text-[11px] text-mute">المستفيد: ' + cleanHolder + '</p>' : '';
+
+        return '<div class="flex items-center justify-between p-3.5 border border-std rounded-xl bg-card shadow-sm">' +
+          '<div class="flex items-center gap-3">' +
+            '<div class="w-9 h-9 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center font-bold text-sm">' +
+              '<i class="fas fa-university"></i>' +
+            '</div>' +
+            '<div>' +
+              '<p class="text-sm font-bold text-main">' + bankName + '</p>' +
+              '<p class="text-xs font-mono text-sub dir-ltr font-semibold">' + accountNumber + '</p>' +
+              holderHtml +
+            '</div>' +
+          '</div>' +
+          '<button type="button" onclick="removeBankAccount(' + i + ')" class="text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 p-2 rounded-lg transition-colors text-xs flex items-center gap-1">' +
+            '<i class="fas fa-trash-alt"></i>' +
+            '<span>حذف</span>' +
+          '</button>' +
+        '</div>';
+      }).join('');
     }
 
     function addBankAccount() {
       const nameInput = document.getElementById('newBankName');
       const accInput = document.getElementById('newBankAccount');
-      if (!nameInput.value || !accInput.value) {
-        return showToast('يرجى تعبئة جميع حقول الحساب', 'error');
+      const holderInput = document.getElementById('newBankHolder');
+      if (!nameInput.value.trim() || !accInput.value.trim()) {
+        return showToast('يرجى تعبئة اسم البنك ورقم الحساب', 'error');
       }
-      STORE_BANK_ACCOUNTS.push({ bank_name: nameInput.value, account_number: accInput.value });
+      STORE_BANK_ACCOUNTS.push({
+        bank_name: nameInput.value.trim(),
+        account_number: accInput.value.trim(),
+        holder_name: holderInput ? holderInput.value.trim() : ''
+      });
       nameInput.value = '';
       accInput.value = '';
+      if (holderInput) holderInput.value = '';
       renderBankAccountsList();
     }
 

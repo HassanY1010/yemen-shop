@@ -718,30 +718,73 @@ function storeLayout(
       }
     }
 
+    function formatBankAccountCard(b) {
+      if (!b) return '';
+      const bankName = b.bank_name || b.bank || b.name || 'حساب بنكي';
+      const rawNumber = b.account_number || b.number || b.account || '';
+      const rawHolder = b.holder_name || b.account_name || b.beneficiary || b.owner || '';
+      
+      const cleanNumber = (rawNumber && rawNumber !== 'undefined' && rawNumber !== 'null') ? String(rawNumber).trim() : '';
+      const cleanHolder = (rawHolder && rawHolder !== 'undefined' && rawHolder !== 'null') ? String(rawHolder).trim() : '';
+      
+      const holderHtml = cleanHolder ? '<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-1"><i class="fas fa-user-check text-emerald-500 text-[10px]"></i> المستفيد: <strong class="text-gray-700 dark:text-gray-200 font-semibold">' + cleanHolder + '</strong></p>' : '';
+
+      return '<div class="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 p-4 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-3 text-right">' +
+        '<div class="flex items-center gap-3">' +
+          '<div class="w-10 h-10 rounded-xl bg-primary-50 dark:bg-primary-900/40 text-primary-600 dark:text-primary-400 flex items-center justify-center font-bold text-base flex-shrink-0 shadow-inner">' +
+            '<i class="fas fa-university"></i>' +
+          '</div>' +
+          '<div class="min-w-0 flex-1">' +
+            '<h4 class="font-black text-gray-900 dark:text-white text-base leading-snug truncate">' + bankName + '</h4>' +
+            holderHtml +
+          '</div>' +
+        '</div>' +
+        '<div class="bg-gray-50 dark:bg-slate-900/60 rounded-xl p-3 border border-gray-100 dark:border-slate-700/60 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">' +
+          '<div class="text-right">' +
+            '<span class="text-[11px] text-gray-400 font-medium block">رقم الحساب:</span>' +
+            '<span class="font-mono text-base font-extrabold text-primary-600 dark:text-primary-400 tracking-wider inline-block dir-ltr">' + cleanNumber + '</span>' +
+          '</div>' +
+          '<button type="button" onclick="copyToClipboard(\'' + cleanNumber + '\')" class="w-full sm:w-auto bg-primary-600 hover:bg-primary-700 active:scale-95 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-md shadow-primary-600/20 flex items-center justify-center gap-2">' +
+            '<i class="fas fa-copy"></i>' +
+            '<span>نسخ رقم الحساب</span>' +
+          '</button>' +
+        '</div>' +
+      '</div>';
+    }
+
     function renderBankAccounts() {
       const list = document.getElementById('bankAccountsList');
       if (!list) return;
-      if (BANK_ACCOUNTS.length === 0) {
-        list.innerHTML = '<p class="text-xs text-red-500">لا توجد حسابات بنكية مضافة حالياً.</p>';
+      if (!BANK_ACCOUNTS || BANK_ACCOUNTS.length === 0) {
+        list.className = 'mt-3';
+        list.innerHTML = '<p class="text-xs text-red-500 font-medium p-3 bg-red-50 rounded-xl border border-red-100">لا توجد حسابات بنكية مضافة حالياً.</p>';
         return;
       }
-      list.innerHTML = BANK_ACCOUNTS.map(b => \`
-        <div class="flex justify-between items-center bg-white p-3 border border-gray-200 rounded-lg shadow-sm">
-          <div>
-            <p class="text-sm font-bold text-gray-800">\${b.bank_name}</p>
-            <p class="text-xs text-gray-500 font-mono mt-0.5" id="acc_\${b.account_number}">\${b.account_number}</p>
-          </div>
-          <button type="button" onclick="copyToClipboard('\${b.account_number}')" class="text-primary-600 hover:bg-primary-50 p-2 rounded-lg transition-colors text-xs flex items-center gap-1 border border-primary-100">
-            <i class="fas fa-copy"></i> نسخ
-          </button>
-        </div>
-      \`).join('');
+      list.className = 'grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3';
+      list.innerHTML = BANK_ACCOUNTS.map(b => formatBankAccountCard(b)).join('');
     }
 
     function copyToClipboard(text) {
-      navigator.clipboard.writeText(text).then(() => {
-        showToast('تم نسخ رقم الحساب بنجاح', 'success');
-      });
+      if (!text) return;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+          if (typeof showToast === 'function') showToast('تم نسخ رقم الحساب بنجاح', 'success');
+        }).catch(() => {
+          fallbackCopyText(text);
+        });
+      } else {
+        fallbackCopyText(text);
+      }
+    }
+
+    function fallbackCopyText(text) {
+      const input = document.createElement('input');
+      input.value = text;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      document.body.removeChild(input);
+      if (typeof showToast === 'function') showToast('تم نسخ رقم الحساب بنجاح', 'success');
     }
 
     async function submitOrder() {
@@ -2462,18 +2505,12 @@ store.get('/:slug/checkout', async (c) => {
             receiptBox.classList.remove('hidden');
             const list = document.getElementById('pageBankAccountsList');
             if (list) {
-              if (PAGE_BANK_ACCOUNTS.length === 0) {
-                list.innerHTML = '<p class="text-mute">لا توجد حسابات بنكية مضافة حالياً.</p>';
+              if (!PAGE_BANK_ACCOUNTS || PAGE_BANK_ACCOUNTS.length === 0) {
+                list.className = 'mt-3';
+                list.innerHTML = '<p class="text-xs text-red-500 font-medium p-3 bg-red-50 rounded-xl border border-red-100">لا توجد حسابات بنكية مضافة حالياً.</p>';
               } else {
-                list.innerHTML = PAGE_BANK_ACCOUNTS.map(b => \`
-                  <div class="bg-card p-2.5 rounded-lg border border-std flex items-center justify-between">
-                    <div>
-                      <span class="font-bold text-main">\${b.bank_name}</span>
-                      <p class="text-mute">\${b.account_name} - \${b.account_number}</p>
-                      \${b.iban ? \`<p class="text-mute font-mono text-[10px]">IBAN: \${b.iban}</p>\` : ''}
-                    </div>
-                  </div>
-                \`).join('');
+                list.className = 'grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3';
+                list.innerHTML = PAGE_BANK_ACCOUNTS.map(b => formatBankAccountCard(b)).join('');
               }
             }
           }
