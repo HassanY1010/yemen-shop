@@ -333,11 +333,15 @@ admin.get('/stores', async (c) => {
         <td class="px-5 py-4"><span class="px-2.5 py-1 rounded-full text-xs font-semibold ${isStoreActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${isStoreActive ? 'نشط' : 'موقوف'}</span></td>
         <td class="px-5 py-4 text-mute text-xs">${formatDate(store.created_at)}</td>
         <td class="px-5 py-4">
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 flex-wrap">
             <a href="/admin/stores/${store.id}" class="text-xs px-2.5 py-1 bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100 font-medium">تفاصيل</a>
             <button onclick="toggleStore(${store.id}, '${store.status || 'suspended'}', ${store.is_active ?? 1}, this)"
-              class="text-xs px-2.5 py-1 rounded-lg font-medium transition-colors ${isStoreActive ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'}">
+              class="text-xs px-2.5 py-1 rounded-lg font-medium transition-colors ${isStoreActive ? 'bg-amber-50 text-amber-700 hover:bg-amber-100' : 'bg-green-50 text-green-700 hover:bg-green-100'}">
               ${isStoreActive ? 'إيقاف المتجر' : 'تشغيل المتجر'}
+            </button>
+            <button onclick="deleteStoreFull(${store.id}, '${store.name}')"
+              class="text-xs px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors flex items-center gap-1 shadow-sm" title="حذف المتجر بالكامل ومسح جميع محتوياته">
+              <i class="fas fa-trash-alt"></i> حذف المتجر بالكامل
             </button>
           </div>
         </td>
@@ -419,7 +423,7 @@ admin.get('/stores', async (c) => {
           showToast(newStatus === 'suspended' ? 'تم إيقاف المتجر بنجاح' : 'تم تشغيل المتجر بنجاح', 'success');
           if (btn) {
             btn.textContent = newStatus === 'suspended' ? 'تشغيل المتجر' : 'إيقاف المتجر';
-            btn.className = 'text-xs px-2.5 py-1 rounded-lg font-medium transition-colors ' + (newStatus === 'active' ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100');
+            btn.className = 'text-xs px-2.5 py-1 rounded-lg font-medium transition-colors ' + (newStatus === 'active' ? 'bg-amber-50 text-amber-700 hover:bg-amber-100' : 'bg-green-50 text-green-700 hover:bg-green-100');
             btn.setAttribute('onclick', "toggleStore(" + storeId + ", '" + newStatus + "', " + newIsActive + ", this)");
             const row = btn.closest('tr');
             if (row) {
@@ -443,6 +447,33 @@ admin.get('/stores', async (c) => {
       }
     }
     window.toggleStore = toggleStore;
+
+    async function deleteStoreFull(storeId, storeName) {
+      const confirmed = await showConfirmModal({
+        title: 'تأكيد الحذف النهائي الشامل للمتجر',
+        message: 'تحذير شديد الخطورة: هل أنت متأكد بنسبة 100% من رغبتك في حذف المتجر (' + storeName + ') بشكل كامل ونهائي؟\\n\\nسيتم حذف جميع المنتجات، والطلبات، والأقسام، والعملاء، والكوبونات، والعروض، والملفات المرفوقة بالمتجر نهائياً ولن يمكن التراجع عن هذه العملية إطلاقاً!',
+        type: 'danger',
+        icon: 'trash-alt',
+        confirmText: 'نعم، قم بالحذف الشامل نهائياً',
+        cancelText: 'تراجع وإلغاء'
+      });
+      if (!confirmed) return;
+
+      try {
+        const res = await axios.delete('/api/admin/stores/' + storeId);
+        if (res.data && res.data.success !== false) {
+          showToast(res.data?.message || 'تم حذف المتجر وكافة بياناته ومحتوياته بنجاح نهائياً', 'success');
+          setTimeout(() => {
+            window.location.href = '/admin/stores';
+          }, 900);
+        } else {
+          showToast(res.data?.message || res.data?.error || 'خطأ أثناء حذف المتجر', 'error');
+        }
+      } catch(err) {
+        showToast(err.response?.data?.message || err.response?.data?.error || 'حدث خطأ أثناء حذف المتجر', 'error');
+      }
+    }
+    window.deleteStoreFull = deleteStoreFull;
   </script>
   `));
 });
@@ -549,8 +580,12 @@ admin.get('/stores/:id', async (c) => {
           <i class="fas fa-exchange-alt ml-1"></i>تغيير الباقة
         </button>
         <button id="storeDetailToggleBtn" onclick="toggleStoreStatus(${storeData.id}, '${storeData.status || 'suspended'}', ${storeData.is_active ?? 1}, this)"
-          class="px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${isStoreActive ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'}">
+          class="px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${isStoreActive ? 'bg-amber-50 text-amber-700 hover:bg-amber-100' : 'bg-green-50 text-green-700 hover:bg-green-100'}">
           ${isStoreActive ? 'إيقاف المتجر' : 'تشغيل المتجر'}
+        </button>
+        <button onclick="deleteStoreFull(${storeData.id}, '${storeData.name}')"
+          class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-sm transition-all shadow-md flex items-center gap-1.5" title="حذف المتجر بالكامل ومسح جميع محتوياته">
+          <i class="fas fa-trash-alt"></i> حذف المتجر بالكامل
         </button>
       </div>
     </div>
@@ -670,30 +705,33 @@ admin.get('/stores/:id', async (c) => {
       }
     }
     window.toggleStoreStatus = toggleStoreStatus;
-  </script>showToast(newStatus === 'suspended' ? 'تم إيقاف المتجر بنجاح' : 'تم تشغيل المتجر بنجاح', 'success');
-          if (btn) {
-            btn.textContent = newStatus === 'suspended' ? 'تشغيل المتجر' : 'إيقاف المتجر';
-            btn.className = 'px-4 py-2 rounded-xl text-sm font-semibold transition-colors ' + (newStatus === 'active' ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100');
-            btn.setAttribute('onclick', "toggleStoreStatus(" + storeId + ", '" + newStatus + "', " + newIsActive + ", this)");
-          }
-          const badge = document.querySelector('span.rounded-full');
-          if (badge) {
-            badge.className = 'px-2.5 py-0.5 rounded-full text-xs font-semibold ' + (newStatus === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700');
-            badge.textContent = newStatus === 'active' ? 'نشط' : 'موقوف';
-          }
+
+    async function deleteStoreFull(storeId, storeName) {
+      const confirmed = await showConfirmModal({
+        title: 'تأكيد الحذف النهائي الشامل للمتجر',
+        message: 'تحذير شديد الخطورة: هل أنت متأكد بنسبة 100% من رغبتك في حذف المتجر (' + storeName + ') بشكل كامل ونهائي؟\\n\\nسيتم حذف جميع المنتجات، والطلبات، والأقسام، والعملاء، والكوبونات، والعروض، والملفات المرفوقة بالمتجر نهائياً ولن يمكن التراجع عن هذه العملية إطلاقاً!',
+        type: 'danger',
+        icon: 'trash-alt',
+        confirmText: 'نعم، قم بالحذف الشامل نهائياً',
+        cancelText: 'تراجع وإلغاء'
+      });
+      if (!confirmed) return;
+
+      try {
+        const res = await axios.delete('/api/admin/stores/' + storeId);
+        if (res.data && res.data.success !== false) {
+          showToast(res.data?.message || 'تم حذف المتجر وكافة بياناته ومحتوياته بنجاح نهائياً', 'success');
           setTimeout(() => {
-            const url = new URL(window.location.href);
-            url.searchParams.set('_t', Date.now().toString());
-            window.location.href = url.toString();
-          }, 500);
+            window.location.href = '/admin/stores';
+          }, 900);
         } else {
-          showToast(res.data?.message || res.data?.error || 'خطأ في تحديث حالة المتجر', 'error');
+          showToast(res.data?.message || res.data?.error || 'خطأ أثناء حذف المتجر', 'error');
         }
       } catch(err) {
-        showToast(err.response?.data?.error || err.response?.data?.message || 'خطأ في تحديث حالة المتجر', 'error');
+        showToast(err.response?.data?.message || err.response?.data?.error || 'حدث خطأ أثناء حذف المتجر', 'error');
       }
     }
-    window.toggleStoreStatus = toggleStoreStatus;
+    window.deleteStoreFull = deleteStoreFull;
   </script>
   `));
 });

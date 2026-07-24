@@ -571,6 +571,111 @@ api.put('/dashboard/orders/:id/payment-status', handleUpdatePaymentStatus);
 api.delete('/orders/:id', handleDeleteOrder);
 api.delete('/dashboard/orders/:id', handleDeleteOrder);
 
+const handleDeleteStoreFull = async (c: any) => {
+  try {
+    const user = c.get('user');
+    if (!user || user.role !== 'admin') {
+      return c.json({ success: false, message: 'غير مصرح بالحذف. يتطلب صلاحية مدير المنصة' }, 403);
+    }
+
+    const storeId = parseInt(c.req.param('id'));
+    if (isNaN(storeId)) return c.json({ success: false, message: 'معرف المتجر غير صحيح' }, 400);
+
+    const store = await c.env.DB.prepare('SELECT * FROM stores WHERE id = ?').bind(storeId).first() as any;
+    if (!store) {
+      return c.json({ success: false, message: 'المتجر غير موجود أو تم حذفه سابقاً' }, 404);
+    }
+
+    const ownerId = store.user_id;
+
+    // 1. Delete order_items
+    try {
+      await c.env.DB.prepare('DELETE FROM order_items WHERE store_id = ? OR order_id IN (SELECT id FROM orders WHERE store_id = ?)').bind(storeId, storeId).run();
+    } catch (e) {}
+
+    // 2. Delete orders
+    try {
+      await c.env.DB.prepare('DELETE FROM orders WHERE store_id = ?').bind(storeId).run();
+    } catch (e) {}
+
+    // 3. Delete product_variants
+    try {
+      await c.env.DB.prepare('DELETE FROM product_variants WHERE store_id = ? OR product_id IN (SELECT id FROM products WHERE store_id = ?)').bind(storeId, storeId).run();
+    } catch (e) {}
+
+    // 4. Delete product_images
+    try {
+      await c.env.DB.prepare('DELETE FROM product_images WHERE store_id = ? OR product_id IN (SELECT id FROM products WHERE store_id = ?)').bind(storeId, storeId).run();
+    } catch (e) {}
+
+    // 5. Delete product_reviews
+    try {
+      await c.env.DB.prepare('DELETE FROM product_reviews WHERE store_id = ? OR product_id IN (SELECT id FROM products WHERE store_id = ?)').bind(storeId, storeId).run();
+    } catch (e) {}
+
+    // 6. Delete flash_sales
+    try {
+      await c.env.DB.prepare('DELETE FROM flash_sales WHERE store_id = ?').bind(storeId).run();
+    } catch (e) {}
+
+    // 7. Delete coupons
+    try {
+      await c.env.DB.prepare('DELETE FROM coupons WHERE store_id = ?').bind(storeId).run();
+    } catch (e) {}
+
+    // 8. Delete products
+    try {
+      await c.env.DB.prepare('DELETE FROM products WHERE store_id = ?').bind(storeId).run();
+    } catch (e) {}
+
+    // 9. Delete categories
+    try {
+      await c.env.DB.prepare('DELETE FROM categories WHERE store_id = ?').bind(storeId).run();
+    } catch (e) {}
+
+    // 10. Delete customers
+    try {
+      await c.env.DB.prepare('DELETE FROM customers WHERE store_id = ?').bind(storeId).run();
+    } catch (e) {}
+
+    // 11. Delete store_staff
+    try {
+      await c.env.DB.prepare('DELETE FROM store_staff WHERE store_id = ?').bind(storeId).run();
+    } catch (e) {}
+
+    // 12. Delete system_notifications
+    try {
+      await c.env.DB.prepare("DELETE FROM system_notifications WHERE store_id = ? OR link LIKE ? OR link LIKE ?").bind(storeId, `%/stores/${storeId}%`, `%/store/${store.slug}%`).run();
+    } catch (e) {}
+
+    // 13. Delete sessions
+    try {
+      await c.env.DB.prepare('DELETE FROM sessions WHERE store_id = ?').bind(storeId).run();
+    } catch (e) {}
+
+    // 14. Check & Delete merchant user if no other stores exist
+    if (ownerId) {
+      const otherStores = await c.env.DB.prepare('SELECT COUNT(*) as count FROM stores WHERE user_id = ? AND id != ?').bind(ownerId, storeId).first() as any;
+      if (!otherStores || otherStores.count === 0) {
+        try { await c.env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(ownerId).run(); } catch (e) {}
+        try { await c.env.DB.prepare("DELETE FROM users WHERE id = ? AND role != 'admin'").bind(ownerId).run(); } catch (e) {}
+      }
+    }
+
+    // 15. Finally, Delete store record permanently
+    await c.env.DB.prepare('DELETE FROM stores WHERE id = ?').bind(storeId).run();
+
+    console.log(`[HARD DELETE STORE SUCCESS] Store ID #${storeId} (${store.name}) permanently deleted.`);
+    return c.json({ success: true, message: `تم حذف المتجر (${store.name}) وسائر بياناته ومحتوياته نهائياً من المنصة.` });
+  } catch (err: any) {
+    console.error('[HARD DELETE STORE ERROR]:', err);
+    return c.json({ success: false, message: 'حدث خطأ أثناء حذف المتجر: ' + (err?.message || '') }, 500);
+  }
+};
+
+api.delete('/admin/stores/:id', handleDeleteStoreFull);
+api.delete('/admin/stores/:id/full', handleDeleteStoreFull);
+
 
 
 const handleUpdateStore = async (c: any) => {
