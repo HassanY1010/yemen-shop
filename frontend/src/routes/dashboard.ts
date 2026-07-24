@@ -2990,7 +2990,7 @@ dashboard.get('/subscription', async (c) => {
 
   const supportRow = await c.env.DB.prepare("SELECT value FROM platform_settings WHERE key = 'support_whatsapp'").first() as any;
   const supportWhatsapp = supportRow?.value || '+967776461892';
-  const whatsappUrl = `https://wa.me/${supportWhatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`مرحباً، أود تجديد وتفعيل اشتراك متجري (${store.name}) في منصة سوق.`)}`;
+  const whatsappUrl = `https://wa.me/${supportWhatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`مرحباً، أود تجديد وتفعيل اشتراك متجري (${store.name}) في منصة سوق اليمن.`)}`;
 
   return c.html(dashboardLayout('شاشة حالة الاشتراك والباقة', `
   <div class="max-w-5xl mx-auto space-y-6">

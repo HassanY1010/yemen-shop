@@ -26,7 +26,7 @@ auth.get('/login', async (c) => {
         <div class="inline-flex items-center justify-center w-20 h-20 bg-white rounded-2xl shadow-2xl mb-4">
           <i class="fas fa-store text-primary-600 text-3xl"></i>
         </div>
-        <h1 class="text-3xl font-bold text-white">منصة سوق</h1>
+        <h1 class="text-3xl font-bold text-white">منصة سوق اليمن</h1>
         <p class="text-primary-200 mt-1">أنشئ متجرك الإلكتروني</p>
       </div>
 

@@ -9,7 +9,7 @@ import { getImageUrl, DEFAULT_STORE_LOGO } from '../utils/helpers';
 const landing = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 landing.get('/', async (c) => {
-  let platformName = 'منصة سوق';
+  let platformName = 'منصة سوق اليمن';
   let supportEmail = 'support@platform.com';
   let supportWhatsapp = '+967776461892';
 

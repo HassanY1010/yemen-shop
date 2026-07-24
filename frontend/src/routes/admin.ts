@@ -1515,7 +1515,7 @@ admin.get('/settings', async (c) => {
     }
   } catch (e) {}
 
-  const platformName = settingsMap['platform_name'] || 'منصة سوق';
+  const platformName = settingsMap['platform_name'] || 'منصة سوق اليمن';
   const supportEmail = settingsMap['support_email'] || 'support@platform.com';
   const supportWhatsapp = settingsMap['support_whatsapp'] || '+967776461892';
   const defaultCurrency = settingsMap['default_currency'] || 'YER';

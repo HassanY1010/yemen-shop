@@ -322,7 +322,7 @@ function storeLayout(
         </div>
       </div>
       <div class="border-t border-gray-800 mt-8 pt-6 pb-16 sm:pb-0 text-center text-sm text-mute">
-        <p>جميع الحقوق محفوظة © ${new Date().getFullYear()} ${storeName} | مدعوم بـ <a href="/" class="text-primary-400 hover:underline">منصة سوق</a></p>
+        <p>جميع الحقوق محفوظة © ${new Date().getFullYear()} ${storeName} | مدعوم بـ <a href="/" class="text-primary-400 hover:underline">منصة سوق اليمن</a></p>
       </div>
     </div>
   </footer>

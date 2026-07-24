@@ -390,7 +390,7 @@ export class NotificationService {
             
             <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 25px 0;">
             <div style="text-align: center; font-size: 12px; color: #94a3b8;">
-              جميع الحقوق محفوظة © ${new Date().getFullYear()} ${store.name} | مدعوم بـ منصة سوق
+              جميع الحقوق محفوظة © ${new Date().getFullYear()} ${store.name} | مدعوم بـ منصة سوق اليمن
             </div>
           </div>
         `;
@@ -505,7 +505,7 @@ export class NotificationService {
 
       <div style="margin-top: 30px; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 20px; font-size: 12px; color: #94a3b8;">
         <p style="margin: 5px 0;">شكراً لتسوقك من متجر <strong>${store.name}</strong></p>
-        <p style="margin: 5px 0;">تم إصدار هذه الفاتورة تلقائياً عبر منصة سوق</p>
+        <p style="margin: 5px 0;">تم إصدار هذه الفاتورة تلقائياً عبر منصة سوق اليمن</p>
       </div>
     </div>
   </div>

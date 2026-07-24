@@ -24,7 +24,7 @@ export function baseLayout(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title} - منصة سوق</title>
+  <title>${title} - منصة سوق اليمن</title>
   ${faviconHtml}
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
@@ -591,7 +591,7 @@ export function dashboardLayout(
             : `<div class="w-10 h-10 rounded-xl flex items-center justify-center text-white text-lg font-bold shadow-lg flex-shrink-0" style="background: linear-gradient(135deg, ${sidebarColor}, ${sidebarColor}cc);">${isAdmin ? '<i class="fas fa-shield-alt text-sm"></i>' : `<span>${(store?.name?.[0] || 'م')}</span>`}</div>`
           }
           <div class="min-w-0">
-            <h2 class="font-bold text-main text-sm leading-tight truncate">${isAdmin ? 'منصة سوق' : (store?.name || 'متجري')}</h2>
+            <h2 class="font-bold text-main text-sm leading-tight truncate">${isAdmin ? 'منصة سوق اليمن' : (store?.name || 'متجري')}</h2>
             <p class="text-xs text-mute">${isAdmin ? 'لوحة الإدارة' : 'لوحة التحكم'}</p>
           </div>
         </div>
