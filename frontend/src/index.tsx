@@ -213,11 +213,40 @@ app.use('/static/*', async (c, next) => {
     } catch (e) {}
   }
 
-  try {
-    return await serveStaticCloudflare({ root: './public' })(c, next);
-  } catch (e) {
-    return c.text('File Not Found', 404);
+  return c.text('File Not Found', 404);
+});
+
+// Service Worker & Web Manifest Direct Routes
+app.get('/manifest.json', async (c) => {
+  const candidatePaths = [
+    path.join(process.cwd(), 'public', 'manifest.json'),
+    path.join(process.cwd(), 'frontend', 'public', 'manifest.json'),
+    path.join(process.cwd(), 'dist', 'manifest.json'),
+    path.join(process.cwd(), 'frontend', 'dist', 'manifest.json'),
+  ];
+  for (const p of candidatePaths) {
+    try {
+      const data = await fs.readFile(p, 'utf-8');
+      return c.text(data, 200, { 'Content-Type': 'application/json' });
+    } catch (e) {}
   }
+  return c.text(typeof manifestContent === 'string' ? manifestContent : '{}', 200, { 'Content-Type': 'application/json' });
+});
+
+app.get('/sw.js', async (c) => {
+  const candidatePaths = [
+    path.join(process.cwd(), 'public', 'sw.js'),
+    path.join(process.cwd(), 'frontend', 'public', 'sw.js'),
+    path.join(process.cwd(), 'dist', 'sw.js'),
+    path.join(process.cwd(), 'frontend', 'dist', 'sw.js'),
+  ];
+  for (const p of candidatePaths) {
+    try {
+      const data = await fs.readFile(p, 'utf-8');
+      return c.text(data, 200, { 'Content-Type': 'application/javascript' });
+    } catch (e) {}
+  }
+  return c.text(typeof swContent === 'string' ? swContent : '// sw', 200, { 'Content-Type': 'application/javascript' });
 });
 
 async function servePwaIcon(c: any, contentType: string = 'image/png') {
