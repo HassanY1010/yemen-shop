@@ -395,9 +395,9 @@ dashboard.get('/products', async (c) => {
         <div class="flex items-center justify-between mb-3">
           <div>
             ${product.sale_price ? `
-              <span class="text-primary-600 font-bold text-sm">${formatCurrency(product.sale_price, store.currency)}</span>
-              <span class="text-mute line-through text-xs mr-1">${formatCurrency(product.price, store.currency)}</span>
-            ` : `<span class="text-primary-600 font-bold text-sm">${formatCurrency(product.price, store.currency)}</span>`}
+              <span class="text-primary-600 font-bold text-sm">${formatCurrency(product.sale_price, product.currency || store.currency)}</span>
+              <span class="text-mute line-through text-xs mr-1">${formatCurrency(product.price, product.currency || store.currency)}</span>
+            ` : `<span class="text-primary-600 font-bold text-sm">${formatCurrency(product.price, product.currency || store.currency)}</span>`}
           </div>
           <span class="text-xs text-mute flex items-center gap-1">
             <i class="fas fa-cubes text-xs"></i>${product.stock}
@@ -3270,6 +3270,9 @@ function productForm(store: any, categories: any[], product: any | null): string
   const isEdit = !!product;
   const images = product?.image_urls ? product.image_urls.split(',') : [];
 
+  const defaultCurrency = product?.currency || store?.currency || 'YER';
+  const defaultSymbol = defaultCurrency === 'USD' ? '$' : defaultCurrency === 'SAR' ? 'ر.س' : 'ر.ي';
+
   return `
   <div class="max-w-3xl">
     <a href="/dashboard/products" class="inline-flex items-center gap-2 text-sub hover:text-primary-600 transition-colors text-sm font-medium mb-5">
@@ -3315,15 +3318,15 @@ function productForm(store: any, categories: any[], product: any | null): string
             <label class="block text-sm font-medium text-sub mb-1.5">عملة المنتج *</label>
             <select id="pCurrency" onchange="updateCurrencySymbols(this.value)"
               class="w-full px-4 py-2.5 border border-std rounded-xl text-sm bg-page text-main focus:ring-2 focus:ring-primary-300 outline-none font-bold">
-              <option value="YER" ${(!product?.currency || product?.currency === 'YER') ? 'selected' : ''}>ريال يمني (YER / ر.ي)</option>
-              <option value="SAR" ${product?.currency === 'SAR' ? 'selected' : ''}>ريال سعودي (SAR / ر.س)</option>
-              <option value="USD" ${product?.currency === 'USD' ? 'selected' : ''}>دولار أمريكي (USD / $)</option>
+              <option value="YER" ${defaultCurrency === 'YER' ? 'selected' : ''}>ريال يمني (YER / ر.ي)</option>
+              <option value="SAR" ${defaultCurrency === 'SAR' ? 'selected' : ''}>ريال سعودي (SAR / ر.س)</option>
+              <option value="USD" ${defaultCurrency === 'USD' ? 'selected' : ''}>دولار أمريكي (USD / $)</option>
             </select>
           </div>
           <div>
             <label class="block text-sm font-medium text-sub mb-1.5">السعر الأساسي *</label>
             <div class="relative">
-              <span class="p-currency-symbol absolute inset-y-0 left-0 flex items-center pl-3 text-mute text-xs font-bold">${product?.currency === 'USD' ? '$' : product?.currency === 'SAR' ? 'ر.س' : 'ر.ي'}</span>
+              <span class="p-currency-symbol absolute inset-y-0 left-0 flex items-center pl-3 text-mute text-xs font-bold">${defaultSymbol}</span>
               <input type="number" id="pPrice" value="${product?.price || ''}" required step="0.01" min="0" placeholder="0.00"
                 class="w-full pr-4 pl-12 py-2.5 border border-std rounded-xl text-sm bg-page text-main focus:ring-2 focus:ring-primary-300 outline-none font-semibold" dir="ltr">
             </div>
@@ -3331,7 +3334,7 @@ function productForm(store: any, categories: any[], product: any | null): string
           <div>
             <label class="block text-sm font-medium text-sub mb-1.5">سعر الخصم</label>
             <div class="relative">
-              <span class="p-currency-symbol absolute inset-y-0 left-0 flex items-center pl-3 text-mute text-xs font-bold">${product?.currency === 'USD' ? '$' : product?.currency === 'SAR' ? 'ر.س' : 'ر.ي'}</span>
+              <span class="p-currency-symbol absolute inset-y-0 left-0 flex items-center pl-3 text-mute text-xs font-bold">${defaultSymbol}</span>
               <input type="number" id="pSalePrice" value="${product?.sale_price || ''}" step="0.01" min="0" placeholder="اختياري"
                 class="w-full pr-4 pl-12 py-2.5 border border-std rounded-xl text-sm bg-page text-main focus:ring-2 focus:ring-primary-300 outline-none font-semibold" dir="ltr">
             </div>

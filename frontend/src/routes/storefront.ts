@@ -1017,8 +1017,8 @@ store.get('/:slug', async (c) => {
         <h3 class="font-semibold text-main text-sm line-clamp-2 mb-2">${product.name}</h3>
         <div class="flex items-center justify-between">
           <div>
-            <span class="font-bold text-base" style="color: ${primary};">${formatCurrency(price, storeData.currency)}</span>
-            ${hasDiscount ? `<span class="text-mute line-through text-xs mr-1">${formatCurrency(product.price, storeData.currency)}</span>` : ''}
+            <span class="font-bold text-base" style="color: ${primary};">${formatCurrency(price, product.currency || storeData.currency)}</span>
+            ${hasDiscount ? `<span class="text-mute line-through text-xs mr-1">${formatCurrency(product.price, product.currency || storeData.currency)}</span>` : ''}
           </div>
           ${product.stock > 0 ? `
           <button data-id="${product.id}"
@@ -1278,8 +1278,8 @@ store.get('/:slug/products', async (c) => {
                 <h3 class="font-semibold text-main text-sm line-clamp-2 mb-2">${p.name}</h3>
                 <div class="flex items-center justify-between">
                   <div>
-                    <span class="font-bold text-sm" style="color: ${primary};">${formatCurrency(price, storeData.currency)}</span>
-                    ${hasDiscount ? `<span class="text-mute line-through text-xs mr-1">${formatCurrency(p.price, storeData.currency)}</span>` : ''}
+                    <span class="font-bold text-sm" style="color: ${primary};">${formatCurrency(price, p.currency || storeData.currency)}</span>
+                    ${hasDiscount ? `<span class="text-mute line-through text-xs mr-1">${formatCurrency(p.price, p.currency || storeData.currency)}</span>` : ''}
                   </div>
                   ${p.stock > 0 ? `
                   <button data-id="${p.id}"
@@ -1532,14 +1532,14 @@ store.get('/:slug/products/:id', async (c) => {
         </div>` : ''}
         
         <div class="flex items-center gap-4 mb-5">
-          <span id="productPriceDisplay" class="text-4xl font-black" style="color: ${primary};">${formatCurrency(price, storeData.currency)}</span>
+          <span id="productPriceDisplay" class="text-4xl font-black" style="color: ${primary};">${formatCurrency(price, product.currency || storeData.currency)}</span>
           ${flashSale ? `
-            <span id="productOriginalPriceDisplay" class="text-xl text-mute line-through">${formatCurrency(product.price, storeData.currency)}</span>
+            <span id="productOriginalPriceDisplay" class="text-xl text-mute line-through">${formatCurrency(product.price, product.currency || storeData.currency)}</span>
             <span class="bg-red-500 text-white text-sm font-bold px-3 py-1 rounded-full">
-              خصم ${flashSale.discount_type === 'percentage' ? `${flashSale.discount_value}%` : `${formatCurrency(flashSale.discount_value, storeData.currency)}`}
+              خصم ${flashSale.discount_type === 'percentage' ? `${flashSale.discount_value}%` : `${formatCurrency(flashSale.discount_value, product.currency || storeData.currency)}`}
             </span>
           ` : product.sale_price ? `
-            <span id="productOriginalPriceDisplay" class="text-xl text-mute line-through">${formatCurrency(product.price, storeData.currency)}</span>
+            <span id="productOriginalPriceDisplay" class="text-xl text-mute line-through">${formatCurrency(product.price, product.currency || storeData.currency)}</span>
             <span id="productDiscountDisplay" class="bg-red-500 text-white text-sm font-bold px-3 py-1 rounded-full">
               خصم ${Math.round((1 - product.sale_price / product.price) * 100)}%
             </span>

@@ -527,10 +527,19 @@ export function baseLayout(
 
     // ── Format currency ──
     function fmtCurrency(amount, currency = 'YER') {
-      return new Intl.NumberFormat('ar-YE', { 
+      const num = amount || 0;
+      const curr = (currency || 'YER').toUpperCase();
+      let symbol = 'ر.ي';
+      if (curr === 'SAR' || curr === 'ر.س') symbol = 'ر.س';
+      else if (curr === 'USD' || curr === '$') symbol = '$';
+      else if (curr === 'EUR' || curr === '€') symbol = '€';
+
+      const formatted = new Intl.NumberFormat(curr === 'USD' ? 'en-US' : 'ar-YE', { 
         minimumFractionDigits: 0,
         maximumFractionDigits: 2
-      }).format(amount || 0) + ' ر.ي';
+      }).format(num);
+
+      return curr === 'USD' ? (symbol + formatted) : (formatted + ' ' + symbol);
     }
 
     // ── Compress Image (WebP + Resizing) ──
