@@ -1377,6 +1377,7 @@ store.get('/:slug/products/:id', async (c) => {
     }
   }
   const price = basePrice;
+  const storeName = storeData.name;
 
   const imageList = (images.results && images.results.length > 0) ? images.results as any[] : (product.image ? [{ url: product.image }] : []);
   const mainImage = getImageUrl(imageList[0]?.url || product.image, DEFAULT_PRODUCT_IMAGE);
