@@ -57,63 +57,78 @@ function statCard(label: string, value: string | number, icon: string, colorClas
 // ─── Dashboard Overview ───────────────────────────────────────
 dashboard.get('/', async (c) => {
   const user = c.get('user')!;
-    const store = await getStore(c);
-    if (!store) return c.redirect('/auth/register');
+  const store = await getStore(c);
+  if (!store) return c.redirect('/auth/register');
 
-  const token = getToken(c);
-  let overview: any = {};
-  let analytics: any = {};
+  const [ordersCnt, prodsCnt, custCnt, revRes, pendingCnt, lowStockRes, recentOrdRes, topProdsRes] = await Promise.all([
+    c.env.DB.prepare('SELECT COUNT(*) as count FROM orders WHERE store_id = ?').bind(store.id).first() as any,
+    c.env.DB.prepare("SELECT COUNT(*) as count FROM products WHERE store_id = ? AND status != 'deleted'").bind(store.id).first() as any,
+    c.env.DB.prepare('SELECT COUNT(*) as count FROM customers WHERE store_id = ?').bind(store.id).first() as any,
+    c.env.DB.prepare("SELECT COALESCE(SUM(total), 0) as revenue FROM orders WHERE store_id = ? AND status != 'cancelled' AND (payment_status = 'paid' OR status = 'completed')").bind(store.id).first() as any,
+    c.env.DB.prepare("SELECT COUNT(*) as count FROM orders WHERE store_id = ? AND status = 'pending'").bind(store.id).first() as any,
+    c.env.DB.prepare("SELECT COUNT(*) as count FROM products WHERE store_id = ? AND status != 'deleted' AND stock <= 5").bind(store.id).first() as any,
+    c.env.DB.prepare('SELECT * FROM orders WHERE store_id = ? ORDER BY id DESC LIMIT 5').bind(store.id).all() as any,
+    c.env.DB.prepare(`
+      SELECT p.id, p.name, p.price, p.image, p.stock, COALESCE(p.total_sold, 0) as total_sold
+      FROM products p
+      WHERE p.store_id = ? AND p.status != 'deleted'
+      ORDER BY p.total_sold DESC, p.id DESC
+      LIMIT 5
+    `).bind(store.id).all() as any,
+  ]);
 
-  try {
-    const [overviewRes, analyticsRes] = await Promise.all([
-      fetchLaravel('dashboard/overview', token),
-      fetchLaravel('dashboard/analytics', token)
-    ]);
-    if (overviewRes.ok && analyticsRes.ok) {
-      overview = await overviewRes.json();
-      analytics = await analyticsRes.json();
-    } else {
-      throw new Error('Laravel fetch bypassed');
-    }
-  } catch (e) {
-    const [ordersCnt, prodsCnt, custCnt, revRes, pendingCnt, recentOrd] = await Promise.all([
-      c.env.DB.prepare('SELECT COUNT(*) as count FROM orders WHERE store_id = ?').bind(store.id).first() as any,
-      c.env.DB.prepare('SELECT COUNT(*) as count FROM products WHERE store_id = ?').bind(store.id).first() as any,
-      c.env.DB.prepare('SELECT COUNT(*) as count FROM customers WHERE store_id = ?').bind(store.id).first() as any,
-      c.env.DB.prepare("SELECT COALESCE(SUM(total), 0) as revenue FROM orders WHERE store_id = ? AND payment_status = 'paid'").bind(store.id).first() as any,
-      c.env.DB.prepare("SELECT COUNT(*) as count FROM orders WHERE store_id = ? AND status = 'pending'").bind(store.id).first() as any,
-      c.env.DB.prepare('SELECT * FROM orders WHERE store_id = ? ORDER BY id DESC LIMIT 5').bind(store.id).all() as any,
-    ]);
+  const ordersTotal = { count: ordersCnt?.count || 0 };
+  const productsTotal = { count: prodsCnt?.count || 0 };
+  const customersTotal = { count: custCnt?.count || 0 };
+  const revenueResult = { revenue: revRes?.revenue || 0 };
+  const pendingCount = { count: pendingCnt?.count || 0 };
+  const lowStockCount = { count: lowStockRes?.count || 0 };
+  const recentOrders = { results: recentOrdRes?.results || [] };
+  const topProducts = { results: topProdsRes?.results || [] };
 
-    overview = {
-      stats: {
-        orders: ordersCnt?.count || 0,
-        products: prodsCnt?.count || 0,
-        customers: custCnt?.count || 0,
-        revenue: revRes?.revenue || 0,
-        pending_orders: pendingCnt?.count || 0,
-        low_stock: 0
-      },
-      recent_orders: recentOrd?.results || []
-    };
-    analytics = { top_products: [] };
+  // Calculate real last 6 months sales & order counts dynamically
+  const monthsList: string[] = [];
+  const revenueByMonth: number[] = [];
+  const ordersByMonth: number[] = [];
+  const monthNamesAr = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+
+  const now = new Date();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    monthsList.push(monthNamesAr[d.getMonth()]);
+    revenueByMonth.push(0);
+    ordersByMonth.push(0);
   }
 
-  const stats = overview.stats || {};
-  const ordersTotal = { count: stats.orders || 0 };
-  const productsTotal = { count: stats.products || 0 };
-  const customersTotal = { count: stats.customers || 0 };
-  const revenueResult = { revenue: stats.revenue || 0 };
-  const pendingCount = { count: stats.pending_orders || 0 };
-  const lowStockCount = { count: stats.low_stock || 0 };
+  const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+  sixMonthsAgo.setHours(0, 0, 0, 0);
 
-  const recentOrders = { results: overview.recent_orders || [] };
-  
-  const chartLabels = JSON.stringify(['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو']);
-  const chartRevenue = JSON.stringify([0, 0, 0, 0, 0, stats.revenue || 0]);
-  const chartOrders = JSON.stringify([0, 0, 0, 0, 0, stats.orders || 0]);
+  const storeOrdersForChart = await c.env.DB.prepare(`
+    SELECT total, status, payment_status, created_at
+    FROM orders
+    WHERE store_id = ? AND created_at >= ? AND status != 'cancelled'
+  `).bind(store.id, sixMonthsAgo.toISOString()).all() as any;
 
-  const topProducts = { results: analytics.top_products || [] };
+  if (storeOrdersForChart?.results) {
+    for (const ord of storeOrdersForChart.results) {
+      if (!ord.created_at) continue;
+      const ordDate = new Date(ord.created_at);
+      if (isNaN(ordDate.getTime())) continue;
+
+      const diffMonths = (now.getFullYear() - ordDate.getFullYear()) * 12 + (now.getMonth() - ordDate.getMonth());
+      if (diffMonths >= 0 && diffMonths <= 5) {
+        const idx = 5 - diffMonths;
+        ordersByMonth[idx] += 1;
+        if (ord.payment_status === 'paid' || ord.status === 'completed') {
+          revenueByMonth[idx] += Number(ord.total) || 0;
+        }
+      }
+    }
+  }
+
+  const chartLabels = JSON.stringify(monthsList);
+  const chartRevenue = JSON.stringify(revenueByMonth.map(r => Math.round(r)));
+  const chartOrders = JSON.stringify(ordersByMonth);
 
   if (store && (!store.plan || !store.plan.name) && store.plan_id && c.env?.DB) {
     try {

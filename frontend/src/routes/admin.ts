@@ -47,49 +47,79 @@ async function ensurePlatformSettingsTable(db: any) {
 admin.get('/', async (c) => {
   const user = c.get('user')!;
 
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayIso = todayStart.toISOString();
+
   const [storesTotal, storesActive, usersTotal, ordersTotal, revenueData, customersTotal, todayOrders, todayRevenue] = await Promise.all([
-    c.env.DB.prepare('SELECT COUNT(*) as count FROM stores').first() as Promise<any>,
-    c.env.DB.prepare("SELECT COUNT(*) as count FROM stores WHERE status = 'active'").first() as Promise<any>,
+    c.env.DB.prepare("SELECT COUNT(*) as count FROM stores WHERE status != 'deleted'").first() as Promise<any>,
+    c.env.DB.prepare("SELECT COUNT(*) as count FROM stores WHERE status = 'active' AND (is_active = 1 OR is_active IS NULL)").first() as Promise<any>,
     c.env.DB.prepare("SELECT COUNT(*) as count FROM users WHERE role != 'admin'").first() as Promise<any>,
     c.env.DB.prepare('SELECT COUNT(*) as count FROM orders').first() as Promise<any>,
     c.env.DB.prepare("SELECT COALESCE(SUM(total), 0) as revenue FROM orders WHERE status != 'cancelled'").first() as Promise<any>,
     c.env.DB.prepare('SELECT COUNT(*) as count FROM customers').first() as Promise<any>,
-    c.env.DB.prepare(`SELECT COUNT(*) as count FROM orders WHERE DATE(created_at::date) = CURRENT_DATE`).first() as Promise<any>,
-    c.env.DB.prepare(`SELECT COALESCE(SUM(total), 0) as revenue FROM orders WHERE DATE(created_at::date) = CURRENT_DATE AND status != 'cancelled'`).first() as Promise<any>,
+    c.env.DB.prepare('SELECT COUNT(*) as count FROM orders WHERE created_at >= ?').bind(todayIso).first() as Promise<any>,
+    c.env.DB.prepare("SELECT COALESCE(SUM(total), 0) as revenue FROM orders WHERE created_at >= ? AND status != 'cancelled'").bind(todayIso).first() as Promise<any>,
   ]);
 
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-  const last7Days = await c.env.DB.prepare(`
-    SELECT DATE(created_at) as day, COUNT(*) as orders, COALESCE(SUM(total),0) as revenue
-    FROM orders WHERE created_at >= ?
-    GROUP BY DATE(created_at) ORDER BY day ASC
-  `).bind(sevenDaysAgo.toISOString()).all();
+  const dayNamesAr = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+  const chartDaysList: string[] = [];
+  const chartOrdersList: number[] = [];
+  const chartRevenueList: number[] = [];
+
+  const now = new Date();
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+    chartDaysList.push(dayNamesAr[d.getDay()]);
+    chartOrdersList.push(0);
+    chartRevenueList.push(0);
+  }
+
+  const sevenDaysAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+  sevenDaysAgo.setHours(0, 0, 0, 0);
+
+  const raw7Days = await c.env.DB.prepare(`
+    SELECT created_at, total, status FROM orders WHERE created_at >= ?
+  `).bind(sevenDaysAgo.toISOString()).all() as any;
+
+  if (raw7Days?.results) {
+    for (const ord of raw7Days.results) {
+      if (!ord.created_at) continue;
+      const ordDate = new Date(ord.created_at);
+      if (isNaN(ordDate.getTime())) continue;
+      const diffDays = Math.floor((now.getTime() - ordDate.getTime()) / (1000 * 60 * 60 * 24));
+      if (diffDays >= 0 && diffDays <= 6) {
+        const idx = 6 - diffDays;
+        chartOrdersList[idx] += 1;
+        if (ord.status !== 'cancelled') {
+          chartRevenueList[idx] += Number(ord.total) || 0;
+        }
+      }
+    }
+  }
+
+  const chartDays = JSON.stringify(chartDaysList);
+  const chartOrders = JSON.stringify(chartOrdersList);
+  const chartRevenue = JSON.stringify(chartRevenueList.map(r => Math.round(r)));
 
   const recentStores = await c.env.DB.prepare(`
     SELECT s.*, u.name as owner_name, COALESCE(p.name, 'بدون باقة') as plan_name
     FROM stores s LEFT JOIN users u ON s.user_id = u.id LEFT JOIN plans p ON s.plan_id = p.id
-    ORDER BY s.created_at DESC LIMIT 6
+    WHERE s.status != 'deleted'
+    ORDER BY s.id DESC LIMIT 6
   `).all();
 
   const planStats = await c.env.DB.prepare(`
     SELECT p.name, p.slug, COUNT(s.id) as count
-    FROM plans p LEFT JOIN stores s ON s.plan_id = p.id
-    GROUP BY p.id ORDER BY p.price ASC
+    FROM plans p LEFT JOIN stores s ON s.plan_id = p.id AND (s.status != 'deleted' OR s.status IS NULL)
+    GROUP BY p.id, p.name, p.slug ORDER BY p.price ASC
   `).all();
 
   const recentOrders = await c.env.DB.prepare(`
     SELECT o.*, COALESCE(s.name, 'متجر محذوف') as store_name
     FROM orders o LEFT JOIN stores s ON o.store_id = s.id
-    ORDER BY o.created_at DESC LIMIT 8
+    ORDER BY o.id DESC LIMIT 8
   `).all();
-
-  const chartDays = JSON.stringify((last7Days.results as any[]).map((d: any) => {
-    const date = new Date(d.day);
-    return date.toLocaleDateString('ar-SA', { weekday: 'short' });
-  }));
-  const chartOrders = JSON.stringify((last7Days.results as any[]).map((d: any) => d.orders));
-  const chartRevenue = JSON.stringify((last7Days.results as any[]).map((d: any) => Math.round(d.revenue)));
 
   const planColors: Record<string, string> = { free: '#94a3b8', basic: '#3b82f6', pro: '#8b5cf6', business: '#f59e0b' };
   const planLabels = JSON.stringify((planStats.results as any[]).map((p: any) => p.name));
