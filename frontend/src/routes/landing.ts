@@ -6,35 +6,64 @@ import { Bindings, Variables } from '../types/index';
 import { baseLayout } from '../utils/templates';
 import { getImageUrl, DEFAULT_STORE_LOGO } from '../utils/helpers';
 
-const landing = new Hono<{ Bindings: Bindings; Variables: Variables }>();
+interface LandingCache {
+  platformName: string;
+  supportEmail: string;
+  supportWhatsapp: string;
+  plans: any[];
+  stores: any[];
+  timestamp: number;
+}
+
+let landingCache: LandingCache | null = null;
+const LANDING_CACHE_TTL = 300 * 1000; // 5 minutes cache
 
 landing.get('/', async (c) => {
+  c.header('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
+
+  const now = Date.now();
+  if (landingCache && (now - landingCache.timestamp < LANDING_CACHE_TTL)) {
+    return c.html(baseLayout(`${landingCache.platformName} - أنشئ متجرك في دقائق`, buildLandingBody(landingCache)));
+  }
+
   let platformName = 'منصة سوق اليمن';
   let supportEmail = 'support@platform.com';
   let supportWhatsapp = '+967776461892';
+  let plans: any[] = [];
+  let stores: any[] = [];
 
   try {
-    const { ensurePlansSeeded } = await import('../middleware/tenant');
     if (c.env?.DB) {
-      await ensurePlansSeeded(c.env.DB);
-      const settingsRows = await c.env.DB.prepare('SELECT key, value FROM platform_settings').all() as any;
-      if (settingsRows?.results) {
-        for (const r of settingsRows.results) {
+      const [settingsRes, plansRes, storesRes] = await Promise.all([
+        c.env.DB.prepare('SELECT key, value FROM platform_settings').all().catch(() => null),
+        c.env.DB.prepare('SELECT * FROM plans ORDER BY price ASC').all().catch(() => null),
+        c.env.DB.prepare(`
+          SELECT s.id, s.name, s.slug, s.logo, s.description
+          FROM stores s
+          WHERE s.status = 'active' AND (s.is_active = 1 OR s.is_active IS NULL)
+          ORDER BY s.created_at DESC LIMIT 20
+        `).all().catch(() => null)
+      ]);
+
+      if (settingsRes?.results) {
+        for (const r of settingsRes.results as any[]) {
           if (r.key === 'platform_name' && r.value) platformName = r.value;
           if (r.key === 'support_email' && r.value) supportEmail = r.value;
           if (r.key === 'support_whatsapp' && r.value) supportWhatsapp = r.value;
         }
       }
-    }
-  } catch (e) {}
 
-  let plans: any[] = [];
-  try {
-    if (c.env?.DB) {
-      const res = await c.env.DB.prepare('SELECT * FROM plans ORDER BY price ASC').all() as any;
-      if (res?.results && res.results.length > 0) plans = res.results;
+      if (plansRes?.results && (plansRes.results as any[]).length > 0) {
+        plans = plansRes.results as any[];
+      }
+
+      if (storesRes?.results) {
+        stores = storesRes.results as any[];
+      }
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error('[LANDING] Error fetching landing data:', e);
+  }
 
   if (!plans.length) {
     plans = [
@@ -45,25 +74,19 @@ landing.get('/', async (c) => {
     ];
   }
 
-  let stores: any[] = [];
-  try {
-    if (c.env?.DB) {
-      const res = await c.env.DB.prepare(`
-        SELECT s.*, 
-               (SELECT COUNT(*) FROM products WHERE store_id = s.id) as products_count
-        FROM stores s
-        WHERE s.status = 'active' AND (s.is_active = 1 OR s.is_active IS NULL)
-        ORDER BY s.created_at DESC
-      `).all() as any;
-      if (res?.results) {
-        stores = res.results;
-      }
-    }
-  } catch (e) {
-    console.error('[LANDING] Error fetching active stores:', e);
-  }
+  landingCache = { platformName, supportEmail, supportWhatsapp, plans, stores, timestamp: now };
 
-  return c.html(baseLayout(`${platformName} - أنشئ متجرك في دقائق`, `
+  return c.html(baseLayout(`${platformName} - أنشئ متجرك في دقائق`, buildLandingBody(landingCache), {
+    ogTitle: `${platformName} - أنشئ متجرك الإلكتروني في اليمن بسهولة`,
+    ogDescription: 'منصة سوق اليمن - المنصة المتكاملة لإنشاء وإدارة المتاجر الإلكترونية في اليمن، دعم الدفع عبر البنوك المحلية وتتبع الطلبات مجاناً.',
+    ogImage: '/pwa-icon.png',
+    ogUrl: 'https://yemen-shop.onrender.com/'
+  }));
+});
+
+function buildLandingBody(data: { platformName: string; supportEmail: string; supportWhatsapp: string; plans: any[]; stores: any[] }): string {
+  const { platformName, supportEmail, supportWhatsapp, plans, stores } = data;
+  return `
   <!-- Navbar -->
   <nav class="bg-white/95 backdrop-blur-sm sticky top-0 z-50 border-b border-gray-100 shadow-sm">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
@@ -333,13 +356,7 @@ landing.get('/', async (c) => {
         <p>© ${new Date().getFullYear()} ${platformName} - جميع الحقوق محفوظة</p>
       </div>
     </div>
-  </footer>
-  `, {
-    ogTitle: `${platformName} - أنشئ متجرك الإلكتروني في اليمن بسهولة`,
-    ogDescription: 'منصة سوق اليمن - المنصة المتكاملة لإنشاء وإدارة المتاجر الإلكترونية في اليمن، دعم الدفع عبر البنوك المحلية وتتبع الطلبات مجاناً.',
-    ogImage: '/pwa-icon.png',
-    ogUrl: 'https://yemen-shop.onrender.com/'
-  }));
-});
+  </footer>`;
+}
 
 export default landing;

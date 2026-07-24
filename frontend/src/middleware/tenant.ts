@@ -71,12 +71,15 @@ export function getCurrentStoreId(c: AppContext): number | null {
   return store?.id || null;
 }
 
+let isPlansSeeded = false;
+
 /**
  * Ensure the 4 official plans are seeded with exact specifications
  */
 export async function ensurePlansSeeded(db: any) {
-  if (!db) return;
+  if (!db || isPlansSeeded) return;
   try {
+    isPlansSeeded = true;
     try { await db.prepare("ALTER TABLE plans ADD COLUMN IF NOT EXISTS duration_days INTEGER DEFAULT 30").run(); } catch {}
     try { await db.prepare("ALTER TABLE plans ADD COLUMN IF NOT EXISTS max_stores INTEGER DEFAULT 1").run(); } catch {}
     try { await db.prepare("ALTER TABLE plans ADD COLUMN IF NOT EXISTS max_categories INTEGER DEFAULT 20").run(); } catch {}
