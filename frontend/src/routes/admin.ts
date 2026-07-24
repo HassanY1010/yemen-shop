@@ -375,7 +375,14 @@ admin.get('/stores', async (c) => {
       const isCurrentlyActive = currentStatus === 'active' && (currentIsActive === 1 || currentIsActive === true || currentIsActive === '1' || currentIsActive === undefined || currentIsActive === null);
       const newStatus = isCurrentlyActive ? 'suspended' : 'active';
       const newIsActive = isCurrentlyActive ? 0 : 1;
-      if (!confirm(isCurrentlyActive ? 'هل تريد إيقاف هذا المتجر؟' : 'هل تريد تشغيل هذا المتجر؟')) return;
+      const confirmed = await showConfirmModal({
+        title: isCurrentlyActive ? 'إيقاف المتجر' : 'تفعيل المتجر',
+        message: isCurrentlyActive ? 'هل أنت متأكد من رغبتك في إيقاف هذا المتجر؟ لن يتمكن العملاء من الوصول إليه حتى يتم تفعيله مرة أخرى.' : 'هل ترغب في تفعيل وتدشين هذا المتجر الآن للعملاء؟',
+        type: isCurrentlyActive ? 'danger' : 'success',
+        icon: isCurrentlyActive ? 'power-off' : 'check-circle',
+        confirmText: isCurrentlyActive ? 'تأكيد الإيقاف' : 'تأكيد التفعيل'
+      });
+      if (!confirmed) return;
       try {
         const res = await axios.put('/api/admin/stores/' + storeId + '/status', { status: newStatus, is_active: newIsActive });
         if (res.data && res.data.success !== false) {
@@ -576,7 +583,14 @@ admin.get('/stores/:id', async (c) => {
   `, user, undefined, 'stores', `
   <script>
     async function changePlan(planId) {
-      if (!confirm('هل تريد تغيير الباقة وترقيتها لهذا المتجر؟')) return;
+      const confirmed = await showConfirmModal({
+        title: 'تغيير وتحديث الباقة',
+        message: 'هل تريد تغيير الباقة وترقيتها لهذا المتجر وتطبيق الحدود والصلاحيات الجديدة؟',
+        type: 'warning',
+        icon: 'exchange-alt',
+        confirmText: 'تأكيد التغيير'
+      });
+      if (!confirmed) return;
       try {
         const res = await axios.put('/api/admin/stores/${storeData.id}/plan', { plan_id: planId });
         showToast(res.data?.message || 'تم تغيير الباقة وتحديث الصلاحيات بنجاح', 'success');
@@ -590,7 +604,14 @@ admin.get('/stores/:id', async (c) => {
       const isCurrentlyActive = currentStatus === 'active' && (currentIsActive === 1 || currentIsActive === true || currentIsActive === '1' || currentIsActive === undefined || currentIsActive === null);
       const newStatus = isCurrentlyActive ? 'suspended' : 'active';
       const newIsActive = isCurrentlyActive ? 0 : 1;
-      if (!confirm(isCurrentlyActive ? 'هل تريد إيقاف هذا المتجر؟' : 'هل تريد تشغيل هذا المتجر؟')) return;
+      const confirmed = await showConfirmModal({
+        title: isCurrentlyActive ? 'إيقاف المتجر' : 'تفعيل المتجر',
+        message: isCurrentlyActive ? 'هل أنت متأكد من رغبتك في إيقاف هذا المتجر؟ لن يتمكن العملاء من الوصول إليه حتى يتم تفعيله مرة أخرى.' : 'هل ترغب في تفعيل وتدشين هذا المتجر الآن للعملاء؟',
+        type: isCurrentlyActive ? 'danger' : 'success',
+        icon: isCurrentlyActive ? 'power-off' : 'check-circle',
+        confirmText: isCurrentlyActive ? 'تأكيد الإيقاف' : 'تأكيد التفعيل'
+      });
+      if (!confirmed) return;
       try {
         const res = await axios.put('/api/admin/stores/' + storeId + '/status', { status: newStatus, is_active: newIsActive });
         if (res.data && res.data.success !== false) {
@@ -801,8 +822,14 @@ admin.get('/users', async (c) => {
     async function toggleUser(userId, currentIsActive) {
       const isCurrentlyActive = currentIsActive === 1 || currentIsActive === true || currentIsActive === '1';
       const nextActive = isCurrentlyActive ? 0 : 1;
-      const msg = nextActive === 1 ? 'هل تريد تفعيل حساب هذا المستخدم؟' : 'هل تريد إيقاف حساب هذا المستخدم؟';
-      if (!confirm(msg)) return;
+      const confirmed = await showConfirmModal({
+        title: nextActive === 1 ? 'تفعيل حساب المستخدم' : 'إيقاف حساب المستخدم',
+        message: nextActive === 1 ? 'هل ترغب في تفعيل حساب هذا المستخدم وتسهيل دخوله؟' : 'هل أنت متأكد من إيقاف حساب هذا المستخدم؟ لن يتمكن من الوصول للمنصة حتى إعادة تفعيله.',
+        type: nextActive === 1 ? 'success' : 'danger',
+        icon: nextActive === 1 ? 'user-check' : 'user-slash',
+        confirmText: nextActive === 1 ? 'تأكيد التفعيل' : 'تأكيد الإيقاف'
+      });
+      if (!confirmed) return;
       try {
         const res = await axios.put('/api/admin/users/' + userId + '/status', { is_active: nextActive, status: nextActive === 1 ? 'active' : 'suspended' });
         showToast(res.data?.message || (nextActive === 1 ? 'تم تفعيل المستخدم بنجاح' : 'تم إيقاف المستخدم بنجاح'), 'success');
@@ -814,7 +841,14 @@ admin.get('/users', async (c) => {
     window.toggleUser = toggleUser;
 
     async function resetPassword(type, id) {
-      if (!confirm('هل أنت متأكد من إعادة تعيين كلمة المرور إلى 1234567891؟ سيُطلب من المستخدم تغييرها عند تسجيل الدخول القادم.')) return;
+      const confirmed = await showConfirmModal({
+        title: 'إعادة تعيين كلمة المرور',
+        message: 'هل أنت متأكد من إعادة تعيين كلمة المرور إلى (1234567891)؟ سيُطلب من المستخدم تغييرها عند تسجيل الدخول القادم.',
+        type: 'warning',
+        icon: 'key',
+        confirmText: 'إعادة تعيين كلمة المرور'
+      });
+      if (!confirmed) return;
       try {
         const endpoint = type === 'customer' 
           ? '/admin/customers/' + id + '/reset-password'
@@ -1178,7 +1212,14 @@ admin.get('/subscriptions', async (c) => {
   `, user, undefined, 'subscriptions', `
   <script>
     async function activateSubscription(storeId) {
-      if (!confirm('هل تريد تفعيل باقة الاشتراك لهذا المتجر وبدء سريان الصلاحية الآن؟')) return;
+      const confirmed = await showConfirmModal({
+        title: 'تفعيل باقة الاشتراك',
+        message: 'هل تريد تفعيل باقة الاشتراك لهذا المتجر وبدء سريان الصلاحية الآن؟',
+        type: 'success',
+        icon: 'check-circle',
+        confirmText: 'تأكيد التفعيل'
+      });
+      if (!confirmed) return;
       try {
         const res = await axios.post('/api/admin/stores/' + storeId + '/activate-subscription', {});
         showToast(res.data?.message || 'تم تفعيل باقة المتجر بنجاح', 'success');
@@ -1190,7 +1231,14 @@ admin.get('/subscriptions', async (c) => {
     window.activateSubscription = activateSubscription;
 
     async function extendSubscription(storeId) {
-      if (!confirm('هل تريد تمديد الاشتراك لمدة شهر إضافي؟')) return;
+      const confirmed = await showConfirmModal({
+        title: 'تمديد الاشتراك',
+        message: 'هل تريد تمديد الاشتراك لمدة شهر إضافي لهذا المتجر؟',
+        type: 'info',
+        icon: 'calendar-plus',
+        confirmText: 'تمديد الاشتراك'
+      });
+      if (!confirmed) return;
       try {
         const res = await axios.post('/api/admin/stores/' + storeId + '/extend', {});
         showToast(res.data?.message || 'تم تمديد الاشتراك بنجاح', 'success');

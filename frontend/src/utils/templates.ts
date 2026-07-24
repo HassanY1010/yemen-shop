@@ -286,14 +286,13 @@ export function baseLayout(
       applyTheme(theme);
     })();
 
-    // ── Toast notification ──
+    // ── Toast Notifications System ──
     function showToast(message, type = 'success') {
-      const toast = document.createElement('div');
       const colors = {
-        success: 'bg-green-500',
-        error: 'bg-red-500',
-        warning: 'bg-yellow-500',
-        info: 'bg-blue-500'
+        success: 'bg-emerald-600 text-white shadow-emerald-600/25',
+        error: 'bg-rose-600 text-white shadow-rose-600/25',
+        warning: 'bg-amber-500 text-white shadow-amber-500/25',
+        info: 'bg-indigo-600 text-white shadow-indigo-600/25'
       };
       const icons = {
         success: 'check-circle',
@@ -301,22 +300,161 @@ export function baseLayout(
         warning: 'exclamation-triangle',
         info: 'info-circle'
       };
-      toast.className = \`fixed bottom-5 left-5 \${colors[type]||colors.info} text-white px-6 py-3.5 rounded-2xl shadow-2xl z-[9999] flex items-center gap-3 fade-in text-sm font-medium\`;
-      toast.innerHTML = \`<i class="fas fa-\${icons[type]||'info-circle'} text-lg"></i><span>\${message}</span>\`;
-      toast.style.minWidth = '240px';
-      document.body.appendChild(toast);
+
+      let container = document.getElementById('toastContainerGlobal');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'toastContainerGlobal';
+        container.className = 'fixed bottom-5 left-5 right-5 sm:right-auto sm:left-6 z-[999999] flex flex-col gap-3 max-w-md pointer-events-none dir-rtl';
+        document.body.appendChild(container);
+      }
+
+      const toast = document.createElement('div');
+      toast.className = 'pointer-events-auto ' + (colors[type] || colors.info) + ' px-5 py-3.5 rounded-2xl shadow-xl flex items-center justify-between gap-3 text-sm font-semibold transition-all duration-300 transform translate-y-4 opacity-0 border border-white/10 backdrop-blur-md';
+      toast.innerHTML = '<div class="flex items-center gap-3"><i class="fas fa-' + (icons[type] || 'info-circle') + ' text-lg"></i><span>' + message + '</span></div><button onclick="this.parentElement.remove()" class="opacity-70 hover:opacity-100 transition-opacity p-1 text-xs"><i class="fas fa-times"></i></button>';
+
+      container.appendChild(toast);
+
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-4', 'opacity-0');
+      });
+
       setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateY(20px)';
-        toast.style.transition = 'all 0.3s ease';
+        toast.classList.add('translate-y-4', 'opacity-0');
         setTimeout(() => toast.remove(), 300);
-      }, 3500);
+      }, 4000);
     }
 
-    // ── Confirm ──
-    function confirmDelete(msg = 'هل أنت متأكد من الحذف؟ لا يمكن التراجع.') {
-      return confirm(msg);
+    // ── Universal Modern Confirm Modal System ──
+    function showConfirmModal(options = {}) {
+      return new Promise((resolve) => {
+        let title = 'تأكيد العملية';
+        let message = '';
+        let confirmText = 'تأكيد';
+        let cancelText = 'إلغاء';
+        let type = 'danger'; // 'danger' | 'warning' | 'info' | 'success'
+        let icon = 'exclamation-triangle';
+
+        if (typeof options === 'string') {
+          message = options;
+          if (message.includes('إيقاف') || message.includes('حذف') || message.includes('إزالة') || message.includes('إلغاء')) {
+            type = 'danger';
+            icon = message.includes('إيقاف') ? 'power-off' : 'trash-alt';
+            confirmText = message.includes('إيقاف') ? 'تأكيد الإيقاف' : 'تأكيد الحذف';
+            title = message.includes('إيقاف') ? 'تأكيد إيقاف المتجر' : 'تأكيد الحذف النهائي';
+          } else if (message.includes('تفعيل') || message.includes('تشغيل') || message.includes('ترقية') || message.includes('تجديد')) {
+            type = 'warning';
+            icon = 'check-circle';
+            confirmText = 'تأكيد والتفعيل';
+            title = 'تأكيد التفعيل';
+          }
+        } else if (typeof options === 'object' && options !== null) {
+          title = options.title || title;
+          message = options.message || options.desc || message;
+          confirmText = options.confirmText || confirmText;
+          cancelText = options.cancelText || cancelText;
+          type = options.type || type;
+          icon = options.icon || (type === 'danger' ? 'trash-alt' : type === 'warning' ? 'exclamation-triangle' : 'info-circle');
+        }
+
+        const existingModal = document.getElementById('customConfirmModalContainer');
+        if (existingModal) existingModal.remove();
+
+        const themeColors = {
+          danger: {
+            bgIcon: 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400',
+            btnConfirm: 'bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-600/20'
+          },
+          warning: {
+            bgIcon: 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400',
+            btnConfirm: 'bg-amber-600 hover:bg-amber-700 text-white shadow-lg shadow-amber-600/20'
+          },
+          info: {
+            bgIcon: 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400',
+            btnConfirm: 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20'
+          },
+          success: {
+            bgIcon: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400',
+            btnConfirm: 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/20'
+          }
+        };
+
+        const theme = themeColors[type] || themeColors.danger;
+
+        const modalHtml = '<div id="customConfirmModalContainer" class="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all duration-300 opacity-0 text-right dir-rtl">' +
+          '<div id="customConfirmModalCard" class="bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 max-w-md w-full border border-gray-100 dark:border-slate-700/80 shadow-2xl transform transition-all scale-95 relative">' +
+            '<button id="confirmModalCloseBtn" class="absolute top-4 left-4 w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 flex items-center justify-center transition-colors">' +
+              '<i class="fas fa-times text-sm"></i>' +
+            '</button>' +
+            '<div class="text-center mb-6">' +
+              '<div class="w-16 h-16 ' + theme.bgIcon + ' rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner">' +
+                '<i class="fas fa-' + icon + '"></i>' +
+              '</div>' +
+              '<h3 class="text-xl font-black text-gray-800 dark:text-white mb-2">' + title + '</h3>' +
+              '<p class="text-gray-500 dark:text-gray-300 text-sm leading-relaxed">' + message + '</p>' +
+            '</div>' +
+            '<div class="flex items-center gap-3">' +
+              '<button id="confirmModalActionBtn" class="flex-1 ' + theme.btnConfirm + ' font-bold py-3 px-5 rounded-2xl text-sm transition-all flex items-center justify-center gap-2">' +
+                '<span>' + confirmText + '</span>' +
+              '</button>' +
+              '<button id="confirmModalCancelBtn" class="flex-1 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-300 font-bold py-3 px-5 rounded-2xl text-sm transition-all">' +
+                '<span>' + cancelText + '</span>' +
+              '</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        const modalEl = document.getElementById('customConfirmModalContainer');
+        const cardEl = document.getElementById('customConfirmModalCard');
+
+        requestAnimationFrame(() => {
+          modalEl.classList.remove('opacity-0');
+          cardEl.classList.remove('scale-95');
+          cardEl.classList.add('scale-100');
+        });
+
+        function cleanup(result) {
+          if (modalEl) {
+            modalEl.classList.add('opacity-0');
+            cardEl.classList.remove('scale-100');
+            cardEl.classList.add('scale-95');
+            setTimeout(() => modalEl.remove(), 200);
+          }
+          resolve(result);
+        }
+
+        document.getElementById('confirmModalActionBtn').addEventListener('click', () => cleanup(true));
+        document.getElementById('confirmModalCancelBtn').addEventListener('click', () => cleanup(false));
+        document.getElementById('confirmModalCloseBtn').addEventListener('click', () => cleanup(false));
+        modalEl.addEventListener('click', (e) => {
+          if (e.target === modalEl) cleanup(false);
+        });
+      });
     }
+
+    window.showToast = showToast;
+    window.showConfirmModal = showConfirmModal;
+    window.showConfirm = function(msg, title, type) {
+      return showConfirmModal({ title: title || 'تأكيد العملية', message: msg, type: type || 'warning' });
+    };
+    window.confirmDelete = function(msg, title) {
+      return showConfirmModal({
+        title: title || 'تأكيد الحذف النهائي',
+        message: msg || 'هل أنت متأكد من الحذف؟ لا يمكن التراجع عن هذه العملية.',
+        type: 'danger',
+        confirmText: 'نعم، قم بالحذف',
+        cancelText: 'إلغاء',
+        icon: 'trash-alt'
+      });
+    };
+
+    // Override browser native alert
+    window.alert = function(msg) {
+      if (typeof showToast === 'function') {
+        showToast(msg, 'info');
+      }
+    };
 
     // ── Format currency ──
     function fmtCurrency(amount, currency = 'YER') {
@@ -723,7 +861,7 @@ export function dashboardLayout(
     }
 
     async function clearAllNotifications() {
-      if (!confirm('هل تريد حذف جميع الإشعارات؟')) return;
+      if (!await showConfirmModal({ title: 'مسح جميع الإشعارات', message: 'هل تريد حذف جميع الإشعارات نهائياً؟', type: 'danger', confirmText: 'حذف الكل', icon: 'trash-alt' })) return;
       try {
         await fetch('/api/notifications/clear-all', { method: 'DELETE' });
         loadNotifications();

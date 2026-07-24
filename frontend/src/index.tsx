@@ -461,7 +461,7 @@ app.get('/auth/register', async (c) => {
         window.location.href = '/dashboard';
       } catch (err) {
         btn.disabled = false; btn.innerHTML = '<i class="fas fa-rocket"></i> إنشاء المتجر مجاناً';
-        alert(err.message || 'خطأ في البيانات');
+        showToast(err.message || 'خطأ في البيانات', 'error');
       }
     });
   </script>

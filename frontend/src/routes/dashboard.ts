@@ -435,10 +435,10 @@ dashboard.get('/products', async (c) => {
       window.location.href = url;
     }
     async function deleteProduct(id) {
-      if (!confirmDelete('هل أنت متأكد من حذف هذا المنتج؟')) return;
+      if (!await confirmDelete('هل أنت متأكد من رغبتك في حذف هذا المنتج نهائياً من المتجر؟ لا يمكن التراجع عن هذه العملية.', 'حذف المنتج')) return;
       try {
         await axios.delete('/api/dashboard/products/' + id);
-        showToast('تم حذف المنتج', 'success');
+        showToast('تم حذف المنتج بنجاح', 'success');
         setTimeout(() => location.reload(), 900);
       } catch(err) { showToast(err.response?.data?.message || 'خطأ في الحذف', 'error'); }
     }
@@ -1459,12 +1459,12 @@ dashboard.get('/categories', async (c) => {
       } catch(err) { showToast(err.response?.data?.message || 'خطأ', 'error'); }
     });
     async function deleteCategory(id) {
-      if (!confirmDelete('هل تريد حذف هذا التصنيف؟ سيُحذف من المنتجات أيضاً.')) return;
+      if (!await confirmDelete('هل أنت متأكد من رغبتك في حذف هذا التصنيف؟ سيتم إزالته من المنتجات المرتبطة به أيضاً.', 'حذف التصنيف')) return;
       try {
         await axios.delete('/api/dashboard/categories/' + id);
-        showToast('تم حذف التصنيف', 'success');
+        showToast('تم حذف التصنيف بنجاح', 'success');
         setTimeout(() => location.reload(), 800);
-      } catch { showToast('خطأ', 'error'); }
+      } catch { showToast('خطأ في حذف التصنيف', 'error'); }
     }
   </script>
   `));
@@ -1709,12 +1709,12 @@ dashboard.get('/coupons', async (c) => {
       } catch { showToast('خطأ', 'error'); }
     }
     async function deleteCoupon(id) {
-      if (!confirmDelete('هل تريد حذف هذا الكوبون؟')) return;
+      if (!await confirmDelete('هل أنت متأكد من رغبتك في حذف كوبون الخصم هذا نهائياً؟', 'حذف الكوبون')) return;
       try {
         await axios.delete('/api/dashboard/coupons/' + id);
-        showToast('تم حذف الكوبون', 'success');
+        showToast('تم حذف الكوبون بنجاح', 'success');
         setTimeout(() => location.reload(), 800);
-      } catch { showToast('خطأ', 'error'); }
+      } catch { showToast('خطأ في حذف الكوبون', 'error'); }
     }
     document.getElementById('couponForm').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -2881,10 +2881,10 @@ dashboard.get('/settings', async (c) => {
     }
 
     async function subscribePlan(planId) {
-      if (!confirm('هل تريد تغيير الباقة؟')) return;
+      if (!await showConfirmModal({ title: 'تعديل الاشتراك', message: 'هل تريد التغيير والاشتراك بهذه الباقة؟', type: 'info', confirmText: 'تأكيد الاشتراك', icon: 'sync-alt' })) return;
       try {
         await axios.post('/api/dashboard/subscribe', { plan_id: planId });
-        showToast('تم تحديث الاشتراك', 'success');
+        showToast('تم تحديث الاشتراك بنجاح', 'success');
         setTimeout(() => location.reload(), 1000);
       } catch { showToast('خطأ في التحديث', 'error'); }
     }
@@ -3137,7 +3137,7 @@ dashboard.get('/subscription', async (c) => {
   `, user, store, 'subscription', `
   <script>
     async function requestPlanRenewal(planId) {
-      if (!confirm('هل ترغب في إرسال طلب تجديد/تفعيل الاشتراك لمدير النظام؟')) return;
+      if (!await showConfirmModal({ title: 'طلب تجديد الاشتراك', message: 'هل ترغب في إرسال طلب تجديد/تفعيل الاشتراك لمدير النظام؟', type: 'info', confirmText: 'إرسال الطلب', icon: 'paper-plane' })) return;
       try {
         try {
           await axios.post('/dashboard/subscription/renew', { plan_id: planId });
@@ -4241,13 +4241,13 @@ dashboard.get('/flash-sales', async (c) => {
     }
 
     async function deleteSale(id) {
-      if (!confirm('هل تريد حذف هذا العرض؟')) return;
+      if (!await confirmDelete('هل أنت متأكد من رغبتك في حذف هذا العرض الترويجي؟', 'حذف العرض')) return;
       try {
         await axios.delete('/api/dashboard/flash-sales/' + id);
-        showToast('تم حذف العرض', 'success');
+        showToast('تم حذف العرض بنجاح', 'success');
         setTimeout(() => location.reload(), 800);
       } catch(err) {
-        showToast('خطأ', 'error');
+        showToast('خطأ في حذف العرض', 'error');
       }
     }
   </script>
