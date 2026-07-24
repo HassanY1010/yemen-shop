@@ -46,9 +46,18 @@ export async function authMiddleware(c: AppContext, next: Next) {
           c.set('user', user);
 
           let storeId = session.store_id;
-          if (!storeId && session.role === 'merchant') {
-            const st = await db.prepare('SELECT id FROM stores WHERE user_id = ? LIMIT 1').bind(session.user_id).first() as any;
-            storeId = st?.id || null;
+          if (!storeId) {
+            if (session.role === 'merchant') {
+              const st = await db.prepare('SELECT id FROM stores WHERE user_id = ? LIMIT 1').bind(session.user_id).first() as any;
+              storeId = st?.id || null;
+            } else if (session.role === 'staff') {
+              const st = await db.prepare('SELECT store_id FROM users WHERE id = ?').bind(session.user_id).first() as any;
+              storeId = st?.store_id || null;
+              if (!storeId) {
+                const ss = await db.prepare('SELECT store_id FROM store_staff WHERE user_id = ? AND is_active = 1 LIMIT 1').bind(session.user_id).first() as any;
+                storeId = ss?.store_id || null;
+              }
+            }
           }
 
           if (storeId) {
@@ -100,7 +109,7 @@ export function requireAdmin(c: AppContext, next: Next) {
 
 export function requireMerchant(c: AppContext, next: Next) {
   const user = c.get('user');
-  if (!user || (user.role !== 'merchant' && user.role !== 'admin')) {
+  if (!user || (user.role !== 'merchant' && user.role !== 'admin' && user.role !== 'staff')) {
     if (isApiPath(c.req.url)) {
       return c.json({ error: 'Forbidden' }, 403);
     }

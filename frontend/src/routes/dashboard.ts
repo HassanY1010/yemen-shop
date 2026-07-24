@@ -20,8 +20,8 @@ async function getStore(dbOrContext: any, userId?: number) {
       SELECT s.*, p.name as plan_name, p.slug as plan_slug, p.price as plan_price
       FROM stores s
       LEFT JOIN plans p ON s.plan_id = p.id
-      WHERE s.user_id = ? LIMIT 1
-    `).bind(userId).first();
+      WHERE s.user_id = ? OR s.id = (SELECT store_id FROM users WHERE id = ?) OR s.id = (SELECT store_id FROM store_staff WHERE user_id = ? AND is_active = 1) LIMIT 1
+    `).bind(userId, userId, userId).first();
   }
   if (store && (!store.plan || !store.plan.name)) {
     if (dbOrContext && typeof dbOrContext.env?.DB?.prepare === 'function' && store.plan_id) {

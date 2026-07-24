@@ -310,13 +310,27 @@ auth.post('/api/auth/login', async (c) => {
       return c.json({ requirePasswordChange: true, resetToken });
     }
 
-    // Get store for merchant
+    // Get store for merchant or staff
     let storeId = null;
     if (user.role === 'merchant') {
       const store = await c.env.DB.prepare(
         'SELECT id FROM stores WHERE user_id = ? LIMIT 1'
       ).bind(user.id).first() as any;
       storeId = store?.id || null;
+    } else if (user.role === 'staff') {
+      storeId = user.store_id || null;
+      if (!storeId) {
+        const ss = await c.env.DB.prepare(
+          'SELECT store_id FROM store_staff WHERE user_id = ? AND is_active = 1 LIMIT 1'
+        ).bind(user.id).first() as any;
+        storeId = ss?.store_id || null;
+      }
+      if (!storeId) {
+        const st = await c.env.DB.prepare(
+          'SELECT id FROM stores WHERE user_id = ? LIMIT 1'
+        ).bind(user.id).first() as any;
+        storeId = st?.id || null;
+      }
     }
 
     // Create session

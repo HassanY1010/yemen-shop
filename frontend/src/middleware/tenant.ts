@@ -20,13 +20,13 @@ export async function tenantMiddleware(c: AppContext, next: Next) {
   // For merchant, load their store
   const store = c.get('store');
   if (!store) {
-    // Try to load store from user
+    // Try to load store from user or staff relationship
     const userStore = await c.env.DB.prepare(`
       SELECT s.*, p.name as plan_name, p.slug as plan_slug, p.price as plan_price, p.max_products as plan_max_products, p.max_orders as plan_max_orders, p.max_staff as plan_max_staff
       FROM stores s
       LEFT JOIN plans p ON s.plan_id = p.id
-      WHERE s.user_id = ? LIMIT 1
-    `).bind(user.id).first() as any;
+      WHERE s.user_id = ? OR s.id = (SELECT store_id FROM users WHERE id = ?) OR s.id = (SELECT store_id FROM store_staff WHERE user_id = ? AND is_active = 1) LIMIT 1
+    `).bind(user.id, user.id, user.id).first() as any;
 
     if (userStore) {
       if (!userStore.plan) {

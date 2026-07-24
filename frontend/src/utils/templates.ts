@@ -622,7 +622,9 @@ export function dashboardLayout(
   scripts: string = ''
 ): string {
   const isAdmin = user.role === 'admin';
-  const navItems = isAdmin ? adminNavItems : merchantNavItems;
+  const isStaff = user.role === 'staff';
+  const rawNavItems = isAdmin ? adminNavItems : merchantNavItems;
+  const navItems = isStaff ? rawNavItems.filter(item => item.key !== 'staff' && item.key !== 'subscription') : rawNavItems;
   const sidebarColor = store?.primary_color || '#4F46E5';
 
   const navHTML = navItems.map(item => `
@@ -653,7 +655,7 @@ export function dashboardLayout(
           }
           <div class="min-w-0">
             <h2 class="font-bold text-main text-sm leading-tight truncate">${isAdmin ? 'منصة سوق اليمن' : (store?.name || 'متجري')}</h2>
-            <p class="text-xs text-mute">${isAdmin ? 'لوحة الإدارة' : 'لوحة التحكم'}</p>
+            <p class="text-xs text-mute">${isAdmin ? 'لوحة الإدارة' : isStaff ? 'لوحة التحكم (موظف 💼)' : 'لوحة التحكم'}</p>
           </div>
         </div>
         <!-- Close button on mobile -->

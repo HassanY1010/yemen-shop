@@ -16,9 +16,12 @@ const api = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 async function getStore(c: any) {
   const user = c.get('user');
   if (!user) return null;
-  return c.env.DB.prepare(
-    'SELECT * FROM stores WHERE user_id = ? LIMIT 1'
-  ).bind(user.id).first();
+  const cached = c.get('store');
+  if (cached) return cached;
+  return c.env.DB.prepare(`
+    SELECT s.* FROM stores s
+    WHERE s.user_id = ? OR s.id = (SELECT store_id FROM users WHERE id = ?) OR s.id = (SELECT store_id FROM store_staff WHERE user_id = ? AND is_active = 1) LIMIT 1
+  `).bind(user.id, user.id, user.id).first();
 }
 
 // ─── Products GET API ─────────────────────────────────────────
@@ -883,7 +886,17 @@ api.post('/staff', async (c) => {
     VALUES (?, ?, ?, ?, 'staff', 1)
   `).bind(store.id, name, email, hashedPwd).run();
 
-  return c.json({ id: result.meta.last_row_id, message: 'تم إضافة الموظف' }, 201);
+  const newStaffId = result.meta?.last_row_id;
+  if (newStaffId) {
+    try {
+      await c.env.DB.prepare(`
+        INSERT INTO store_staff (store_id, user_id, role, permissions, is_active)
+        VALUES (?, ?, 'staff', '[]', 1)
+      `).bind(store.id, newStaffId).run();
+    } catch (e) {}
+  }
+
+  return c.json({ id: newStaffId, message: 'تم إضافة الموظف' }, 201);
 });
 
 api.put('/staff/:id', async (c) => {
