@@ -15,7 +15,11 @@ export function baseLayout(
   const { scripts = '', styles = '', bodyClass = '', dir = 'rtl', headExtra = '', favicon = '' } = options;
 
   const faviconUrl = favicon ? getImageUrl(favicon) : '/pwa-icon.png';
-  const faviconHtml = `<link rel="icon" type="image/png" href="${faviconUrl}"><link rel="shortcut icon" href="${faviconUrl}"><link rel="apple-touch-icon" href="${faviconUrl}">`;
+  const faviconHtml = `
+  <link rel="icon" type="image/png" sizes="32x32" href="${faviconUrl}">
+  <link rel="icon" type="image/png" sizes="192x192" href="${faviconUrl}">
+  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="${faviconUrl}">`;
 
   return `<!DOCTYPE html>
 <html lang="ar" dir="${dir}" class="light">

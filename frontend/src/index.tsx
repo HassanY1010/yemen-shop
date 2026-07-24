@@ -220,8 +220,7 @@ app.use('/static/*', async (c, next) => {
   }
 });
 
-// Dedicated Direct Official Icon Route
-app.get('/pwa-icon.png', async (c) => {
+async function servePwaIcon(c: any, contentType: string = 'image/png') {
   const candidatePaths = [
     path.join(process.cwd(), 'public', 'static', 'pwa', 'icon.png'),
     path.join(process.cwd(), 'frontend', 'public', 'static', 'pwa', 'icon.png'),
@@ -232,17 +231,19 @@ app.get('/pwa-icon.png', async (c) => {
     try {
       const data = await fs.readFile(p);
       return c.body(data, 200, {
-        'Content-Type': 'image/png',
+        'Content-Type': contentType,
         'Cache-Control': 'public, max-age=86400'
       });
     } catch (e) {}
   }
   return c.text('File Not Found', 404);
-});
+}
 
-app.get('/favicon.ico', (c) => c.redirect('/pwa-icon.png', 301));
-app.get('/favicon.svg', (c) => c.redirect('/pwa-icon.png', 301));
-app.get('/favicon.png', (c) => c.redirect('/pwa-icon.png', 301));
+// Dedicated Direct Official Icon Routes
+app.get('/pwa-icon.png', (c) => servePwaIcon(c, 'image/png'));
+app.get('/favicon.ico', (c) => servePwaIcon(c, 'image/x-icon'));
+app.get('/favicon.png', (c) => servePwaIcon(c, 'image/png'));
+app.get('/favicon.svg', (c) => servePwaIcon(c, 'image/svg+xml'));
 app.get('/robots.txt', (c) => {
   const host = c.req.header('host') || 'localhost';
   const proto = host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https';
