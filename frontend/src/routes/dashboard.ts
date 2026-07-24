@@ -69,10 +69,11 @@ dashboard.get('/', async (c) => {
     c.env.DB.prepare("SELECT COUNT(*) as count FROM products WHERE store_id = ? AND status != 'deleted' AND stock <= 5").bind(store.id).first() as any,
     c.env.DB.prepare('SELECT * FROM orders WHERE store_id = ? ORDER BY id DESC LIMIT 5').bind(store.id).all() as any,
     c.env.DB.prepare(`
-      SELECT p.id, p.name, p.price, p.image, p.stock, COALESCE(p.total_sold, 0) as total_sold
+      SELECT p.id, p.name, p.price, p.image, p.stock,
+             COALESCE((SELECT SUM(quantity) FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE oi.product_id = p.id AND o.store_id = p.store_id AND o.status != 'cancelled'), p.total_sold, 0) as total_sold
       FROM products p
       WHERE p.store_id = ? AND p.status != 'deleted'
-      ORDER BY p.total_sold DESC, p.id DESC
+      ORDER BY total_sold DESC, p.id DESC
       LIMIT 5
     `).bind(store.id).all() as any,
   ]);
@@ -316,7 +317,8 @@ dashboard.get('/products', async (c) => {
 
   let query = `SELECT p.*, 
       COALESCE(p.image, (SELECT url FROM product_images WHERE product_id = p.id ORDER BY is_primary DESC, id ASC LIMIT 1)) as primary_image,
-      c.name as category_name
+      c.name as category_name,
+      COALESCE((SELECT SUM(quantity) FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE oi.product_id = p.id AND o.store_id = p.store_id AND o.status != 'cancelled'), p.total_sold, 0) as total_sold
     FROM products p
     LEFT JOIN categories c ON c.id = p.category_id
     WHERE p.store_id = ? AND p.status != 'deleted'`;
@@ -3653,12 +3655,12 @@ dashboard.get('/analytics', async (c) => {
     `).bind(store.id).all(),
     // Top 10 products
     c.env.DB.prepare(`
-      SELECT p.name, p.total_sold, p.price,
-             COALESCE(SUM(oi.total), 0) as revenue
+      SELECT p.id, p.name, p.price,
+             COALESCE((SELECT SUM(quantity) FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE oi.product_id = p.id AND o.store_id = p.store_id AND o.status != 'cancelled'), p.total_sold, 0) as total_sold,
+             COALESCE((SELECT SUM(total) FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE oi.product_id = p.id AND o.store_id = p.store_id AND o.status != 'cancelled'), 0) as revenue
       FROM products p
-      LEFT JOIN order_items oi ON oi.product_id = p.id AND oi.store_id = p.store_id
-      WHERE p.store_id = ? AND p.total_sold > 0
-      GROUP BY p.id ORDER BY p.total_sold DESC LIMIT 10
+      WHERE p.store_id = ? AND p.status != 'deleted'
+      ORDER BY total_sold DESC, revenue DESC LIMIT 10
     `).bind(store.id).all(),
     // Top cities
     c.env.DB.prepare(`
