@@ -29,11 +29,12 @@ export function baseLayout(
     ogUrl = ''
   } = options;
 
-  const faviconUrl = favicon ? getImageUrl(favicon) : '/pwa-icon.png';
+  const faviconVersion = '?v=2026';
+  const faviconUrl = favicon ? getImageUrl(favicon) : ('/pwa-icon.png' + faviconVersion);
   const faviconHtml = `
   <link rel="icon" type="image/png" sizes="32x32" href="${faviconUrl}">
   <link rel="icon" type="image/png" sizes="192x192" href="${faviconUrl}">
-  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico${faviconVersion}">
   <link rel="apple-touch-icon" href="${faviconUrl}">`;
 
   // Absolute URL formatting helper for WhatsApp / Facebook / Open Graph crawlers
