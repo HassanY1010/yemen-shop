@@ -513,6 +513,21 @@ function storeLayout(
       showToast(name + (variant ? ' (' + variant + ')' : '') + ' أُضيف للسلة ✓', 'success');
     }
 
+    function addToCartFromBtn(btn, e) {
+      if (e && e.stopPropagation) e.stopPropagation();
+      if (!btn) return;
+      const ds = btn.dataset;
+      const id = parseInt(ds.id);
+      if (!id) return;
+      const name = ds.name ? decodeURIComponent(ds.name) : '';
+      const price = parseFloat(ds.price) || 0;
+      const image = ds.image ? decodeURIComponent(ds.image) : '';
+      const variant = ds.variant ? decodeURIComponent(ds.variant) : '';
+      const qty = parseInt(ds.qty) || 1;
+      addToCart(id, name, price, image, variant, qty);
+    }
+    window.addToCartFromBtn = addToCartFromBtn;
+
     function removeFromCart(cartKey) {
       cart = cart.filter(i => (i.cartKey || i.id) !== cartKey);
       saveCart();
@@ -1006,7 +1021,11 @@ store.get('/:slug', async (c) => {
             ${hasDiscount ? `<span class="text-mute line-through text-xs mr-1">${formatCurrency(product.price, storeData.currency)}</span>` : ''}
           </div>
           ${product.stock > 0 ? `
-          <button onclick="event.stopPropagation(); addToCart(${product.id}, '${product.name.replace(/'/g, "\\'")}', ${price}, '${(product.image || product.primary_image || '').replace(/'/g, "\\'")}')"
+          <button data-id="${product.id}"
+            data-name="${encodeURIComponent(product.name)}"
+            data-price="${price}"
+            data-image="${encodeURIComponent(product.image || product.primary_image || '')}"
+            onclick="addToCartFromBtn(this, event)"
             class="w-9 h-9 rounded-xl text-white flex items-center justify-center hover:opacity-80 transition-all text-sm shadow"
             style="background: ${primary};">
             <i class="fas fa-plus"></i>
@@ -1263,7 +1282,11 @@ store.get('/:slug/products', async (c) => {
                     ${hasDiscount ? `<span class="text-mute line-through text-xs mr-1">${formatCurrency(p.price, storeData.currency)}</span>` : ''}
                   </div>
                   ${p.stock > 0 ? `
-                  <button onclick="event.stopPropagation(); addToCart(${p.id}, '${p.name.replace(/'/g, "\\'")}', ${price}, '${(p.image || p.primary_image || '').replace(/'/g, "\\'")}')"
+                  <button data-id="${p.id}"
+                    data-name="${encodeURIComponent(p.name)}"
+                    data-price="${price}"
+                    data-image="${encodeURIComponent(p.image || p.primary_image || '')}"
+                    onclick="addToCartFromBtn(this, event)"
                     class="w-9 h-9 rounded-xl text-white flex items-center justify-center hover:opacity-80 transition-all text-sm shadow"
                     style="background: ${primary};">
                     <i class="fas fa-plus"></i>
