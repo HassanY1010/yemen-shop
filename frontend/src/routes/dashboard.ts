@@ -602,10 +602,16 @@ dashboard.get('/orders', async (c) => {
             </td>
             <td class="px-5 py-3.5 text-sub text-sm hidden lg:table-cell">${new Date(order.created_at).toLocaleDateString('ar-SA')}</td>
             <td class="px-5 py-3.5">
-              <a href="/dashboard/orders/${order.id}"
-                 class="w-8 h-8 flex items-center justify-center text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors" data-tooltip="تفاصيل">
-                <i class="fas fa-eye text-sm"></i>
-              </a>
+              <div class="flex items-center gap-1">
+                <a href="/dashboard/orders/${order.id}"
+                   class="w-8 h-8 flex items-center justify-center text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors" data-tooltip="تفاصيل">
+                  <i class="fas fa-eye text-sm"></i>
+                </a>
+                <button onclick="deleteOrder(${order.id}, '${order.order_number}')"
+                   class="w-8 h-8 flex items-center justify-center text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" data-tooltip="حذف الطلبية">
+                  <i class="fas fa-trash text-sm"></i>
+                </button>
+              </div>
             </td>
           </tr>
           `).join('') : `
@@ -625,6 +631,17 @@ dashboard.get('/orders', async (c) => {
         showToast('تم تحديث حالة الطلب', 'success');
         setTimeout(() => location.reload(), 900);
       } catch(err) { showToast('خطأ في التحديث', 'error'); }
+    }
+
+    async function deleteOrder(orderId, orderNum) {
+      if (!await confirmDelete('هل أنت متأكد من رغبتك في حذف الطلبية رقم #' + orderNum + ' بكامل تفاصيلها ومنتجاتها نهائياً؟ لا يمكن التراجع عن هذه العملية.', 'حذف الطلبية')) return;
+      try {
+        await axios.delete('/api/dashboard/orders/' + orderId);
+        showToast('تم حذف الطلبية بكامل تفاصيلها بنجاح', 'success');
+        setTimeout(() => location.reload(), 900);
+      } catch(err) {
+        showToast(err.response?.data?.message || 'خطأ أثناء حذف الطلبية', 'error');
+      }
     }
   </script>
   `));
@@ -654,6 +671,10 @@ dashboard.get('/orders/:id', async (c) => {
       <i class="fas fa-arrow-right"></i> العودة
     </a>
     <div class="flex items-center gap-2">
+      <button onclick="deleteOrderDetails(${order.id}, '${order.order_number}')"
+              class="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-medium px-4 py-2 rounded-xl text-sm transition-colors shadow-sm">
+        <i class="fas fa-trash"></i> حذف الطلب
+      </button>
       <button onclick="downloadInvoicePDF()"
               class="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white font-medium px-4 py-2 rounded-xl text-sm transition-colors shadow-sm">
         <i class="fas fa-file-pdf"></i> تحميل الفاتورة (PDF)
@@ -1086,6 +1107,17 @@ dashboard.get('/orders/:id', async (c) => {
           iframe.contentWindow.focus();
           iframe.contentWindow.print();
         }, 300);
+      }
+    };
+
+    window.deleteOrderDetails = async function(orderId, orderNum) {
+      if (!await confirmDelete('هل أنت متأكد من رغبتك في حذف الطلبية رقم #' + orderNum + ' بكامل تفاصيلها ومنتجاتها نهائياً؟ لا يمكن التراجع عن هذه العملية.', 'حذف الطلبية')) return;
+      try {
+        await axios.delete('/api/dashboard/orders/' + orderId);
+        showToast('تم حذف الطلبية بكامل تفاصيلها بنجاح', 'success');
+        setTimeout(() => window.location.href = '/dashboard/orders', 900);
+      } catch(err) {
+        showToast(err.response?.data?.message || 'خطأ أثناء حذف الطلبية', 'error');
       }
     };
   </script>

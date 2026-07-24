@@ -519,10 +519,57 @@ const handleUpdatePaymentStatus = async (c: any) => {
   }
 };
 
+const handleDeleteOrder = async (c: any) => {
+  try {
+    const user = c.get('user');
+    if (!user) return c.json({ error: 'غير مصرح' }, 401);
+
+    const orderId = parseInt(c.req.param('id'));
+    if (isNaN(orderId)) return c.json({ message: 'رقم الطلب غير صحيح' }, 400);
+
+    const store = await getStore(c) as any;
+    if (!store && user.role !== 'admin') {
+      return c.json({ error: 'المتجر غير موجود' }, 404);
+    }
+
+    let existingOrder: any = null;
+    if (user.role === 'admin') {
+      existingOrder = await c.env.DB.prepare('SELECT id FROM orders WHERE id = ?').bind(orderId).first();
+    } else {
+      existingOrder = await c.env.DB.prepare('SELECT id FROM orders WHERE id = ? AND store_id = ?').bind(orderId, store.id).first();
+    }
+
+    if (!existingOrder) {
+      return c.json({ message: 'الطلب غير موجود أو غير مصرح بحذفه' }, 404);
+    }
+
+    try {
+      await c.env.DB.prepare('DELETE FROM order_items WHERE order_id = ?').bind(orderId).run();
+    } catch (e1) {}
+
+    try {
+      await c.env.DB.prepare("DELETE FROM system_notifications WHERE link LIKE ?").bind(`%/orders/${orderId}%`).run();
+    } catch (e2) {}
+
+    if (user.role === 'admin') {
+      await c.env.DB.prepare('DELETE FROM orders WHERE id = ?').bind(orderId).run();
+    } else {
+      await c.env.DB.prepare('DELETE FROM orders WHERE id = ? AND store_id = ?').bind(orderId, store.id).run();
+    }
+
+    return c.json({ success: true, message: 'تم حذف الطلبية وكافة تفاصيلها بنجاح' });
+  } catch (err: any) {
+    console.error('[DELETE ORDER ERROR]:', err);
+    return c.json({ success: false, message: 'حدث خطأ أثناء حذف الطلبية: ' + (err?.message || '') }, 500);
+  }
+};
+
 api.put('/orders/:id/status', handleUpdateOrderStatus);
 api.put('/dashboard/orders/:id/status', handleUpdateOrderStatus);
 api.put('/orders/:id/payment-status', handleUpdatePaymentStatus);
 api.put('/dashboard/orders/:id/payment-status', handleUpdatePaymentStatus);
+api.delete('/orders/:id', handleDeleteOrder);
+api.delete('/dashboard/orders/:id', handleDeleteOrder);
 
 
 
