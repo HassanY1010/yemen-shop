@@ -1793,10 +1793,10 @@ store.get('/:slug/products/:id', async (c) => {
       });
 
       const priceEl = document.getElementById('productPriceDisplay');
-      if (priceEl) priceEl.textContent = fmtCurrency(finalPrice, CURRENCY);
+      if (priceEl) priceEl.textContent = finalPrice.toLocaleString('ar-SA') + ' ' + CURRENCY;
       
       const origPriceEl = document.getElementById('productOriginalPriceDisplay');
-      if (origPriceEl) origPriceEl.textContent = fmtCurrency(finalOriginalPrice, CURRENCY);
+      if (origPriceEl) origPriceEl.textContent = finalOriginalPrice.toLocaleString('ar-SA') + ' ' + CURRENCY;
       
       const discEl = document.getElementById('productDiscountDisplay');
       if (discEl) {
@@ -1836,9 +1836,12 @@ store.get('/:slug/products/:id', async (c) => {
         finalPrice += v.modifier;
       });
 
+      const prodName = decodeURIComponent("${encodeURIComponent(product.name)}");
+      const prodImage = decodeURIComponent("${encodeURIComponent(mainImage || '')}");
+
       const addFn = window.addToCart || (typeof addToCart !== 'undefined' ? addToCart : null);
       if (typeof addFn === 'function') {
-        addFn(${product.id}, ${JSON.stringify(product.name)}, finalPrice, ${JSON.stringify(mainImage || '')}, variantStr, qty);
+        addFn(${product.id}, prodName, finalPrice, prodImage, variantStr, qty);
       } else {
         console.error('addToCart is not defined');
       }
