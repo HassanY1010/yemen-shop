@@ -770,7 +770,7 @@ function storeLayout(
             '<span class="text-[11px] text-gray-400 font-medium block">رقم الحساب:</span>' +
             '<span class="font-mono text-base font-extrabold text-primary-600 dark:text-primary-400 tracking-wider inline-block dir-ltr">' + cleanNumber + '</span>' +
           '</div>' +
-          '<button type="button" onclick="copyToClipboard(\'' + cleanNumber + '\')" class="w-full sm:w-auto bg-primary-600 hover:bg-primary-700 active:scale-95 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-md shadow-primary-600/20 flex items-center justify-center gap-2">' +
+          '<button type="button" data-copy="' + cleanNumber + '" onclick="copyToClipboard(this.dataset.copy)" class="w-full sm:w-auto bg-primary-600 hover:bg-primary-700 active:scale-95 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-md shadow-primary-600/20 flex items-center justify-center gap-2">' +
             '<i class="fas fa-copy"></i>' +
             '<span>نسخ رقم الحساب</span>' +
           '</button>' +
