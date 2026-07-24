@@ -15,6 +15,8 @@ interface LandingCache {
   timestamp: number;
 }
 
+const landing = new Hono<{ Bindings: Bindings; Variables: Variables }>();
+
 let landingCache: LandingCache | null = null;
 const LANDING_CACHE_TTL = 300 * 1000; // 5 minutes cache
 
