@@ -12,7 +12,7 @@ import { tenantMiddleware } from './middleware/tenant'
 import manifestContent from '../public/manifest.json?raw'
 // @ts-ignore
 import swContent from '../public/sw.js?raw'
-import { hashPassword, generateToken, verifyPassword, generateSlug, generateOrderNumber, getEnvVar, fetchLaravel } from './utils/helpers'
+import { hashPassword, generateToken, verifyPassword, generateSlug, generateOrderNumber, getEnvVar, fetchLaravel, checkAndUpdateOrderStock } from './utils/helpers'
 import { NotificationService } from './services/notification'
 import { PaymentService } from './services/payment'
 import { getPgPool, PgD1Database } from './utils/db'
@@ -723,12 +723,6 @@ app.post('/api/store/:slug/orders', async (c) => {
     const total = price * item.quantity
     subtotal += total
     orderItems.push({ product_id: product.id, product_name: product.name + variantSuffix, price, quantity: item.quantity, total })
-
-    if (product.manage_stock && product.stock > 0) {
-      await c.env.DB.prepare(
-        'UPDATE products SET stock = stock - ?, total_sold = total_sold + ? WHERE id = ?'
-      ).bind(item.quantity, item.quantity, product.id).run()
-    }
   }
 
   const orderNumber = generateOrderNumber(storeData.id)
@@ -926,6 +920,7 @@ app.post('/api/webhooks/stripe', async (c) => {
         await c.env.DB.prepare(
           "UPDATE orders SET payment_status = 'paid', status = 'processing', updated_at = datetime('now') WHERE id = ?"
         ).bind(orderId).run();
+        await checkAndUpdateOrderStock(c.env.DB, orderId);
       }
     }
     return c.json({ received: true });
@@ -952,9 +947,11 @@ app.get('/store/:slug/checkout/success', async (c) => {
     try {
       const session = await PaymentService.retrieveSession(sessionId, c.env.STRIPE_SECRET_KEY);
       if (session.payment_status === 'paid' && session.metadata?.order_id) {
+        const orderId = parseInt(session.metadata.order_id);
         await c.env.DB.prepare(
           "UPDATE orders SET payment_status = 'paid', status = 'processing', updated_at = datetime('now') WHERE id = ?"
-        ).bind(parseInt(session.metadata.order_id)).run();
+        ).bind(orderId).run();
+        await checkAndUpdateOrderStock(c.env.DB, orderId);
       }
     } catch (e) { /* ignore */ }
   }

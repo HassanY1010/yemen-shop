@@ -341,6 +341,7 @@ async function syncPgTables(pool: any) {
         notes TEXT,
         admin_notes TEXT,
         receipt_image TEXT,
+        inventory_deducted INT DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
@@ -354,6 +355,7 @@ async function syncPgTables(pool: any) {
       ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(10,2) DEFAULT 0;
       ALTER TABLE orders ADD COLUMN IF NOT EXISTS tax NUMERIC(10,2) DEFAULT 0;
       ALTER TABLE orders ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT 'YER';
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS inventory_deducted INT DEFAULT 0;
 
       CREATE TABLE IF NOT EXISTS order_items (
         id SERIAL PRIMARY KEY,

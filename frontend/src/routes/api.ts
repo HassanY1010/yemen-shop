@@ -3,7 +3,7 @@
 // ============================================
 import { Hono } from 'hono';
 import { Bindings, Variables } from '../types/index';
-import { generateSlug, generateOrderNumber, getEnvVar } from '../utils/helpers';
+import { generateSlug, generateOrderNumber, getEnvVar, checkAndUpdateOrderStock } from '../utils/helpers';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { NotificationService } from '../services/notification';
@@ -448,6 +448,9 @@ const handleUpdateOrderStatus = async (c: any) => {
       ).bind(status, orderId).run();
     }
 
+    // Process inventory stock deduction or restock based on status & payment_status
+    await checkAndUpdateOrderStock(c.env.DB, orderId);
+
     // Trigger order status update notifications in background safely
     try {
       if (c.executionCtx && typeof c.executionCtx.waitUntil === 'function') {
@@ -505,6 +508,9 @@ const handleUpdatePaymentStatus = async (c: any) => {
     await c.env.DB.prepare(
       "UPDATE orders SET payment_status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
     ).bind(payment_status, orderId).run();
+
+    // Process inventory stock deduction or restock based on status & payment_status
+    await checkAndUpdateOrderStock(c.env.DB, orderId);
 
     return c.json({ success: true, message: 'تم تحديث حالة الدفع بنجاح' });
   } catch (err: any) {
@@ -1120,13 +1126,6 @@ api.post('/store/:slug/orders', async (c) => {
           total: itemTotal,
           variant: item.variant || ''
         });
-
-        // Decrease stock if stock management is enabled
-        if (product.stock !== undefined && product.stock > 0) {
-          await c.env.DB.prepare(
-            "UPDATE products SET stock = GREATEST(0, stock - ?) WHERE id = ?"
-          ).bind(qty, product.id).run();
-        }
       }
     }
 

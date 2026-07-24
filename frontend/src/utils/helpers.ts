@@ -197,3 +197,84 @@ export async function fetchLaravel(apiPath: string, token?: string | null, optio
     });
   }
 }
+
+// ============================================
+// Order Inventory Management Utilities
+// ============================================
+
+export async function checkAndUpdateOrderStock(db: any, orderId: number): Promise<void> {
+  if (!db || !orderId) return;
+
+  try {
+    // Ensure inventory_deducted column exists on orders table
+    try {
+      await db.prepare('ALTER TABLE orders ADD COLUMN inventory_deducted INT DEFAULT 0').run();
+    } catch (e) {}
+
+    const order = await db.prepare(
+      'SELECT id, store_id, status, payment_status, inventory_deducted FROM orders WHERE id = ?'
+    ).bind(orderId).first() as any;
+
+    if (!order) return;
+
+    const isCompleted = (order.status === 'completed');
+    const isPaid = (order.payment_status === 'paid');
+    const isDeducted = (Number(order.inventory_deducted) === 1);
+
+    // 1) Both conditions met (status=completed AND payment_status=paid) & not deducted yet -> Deduct stock & mark inventory_deducted = 1
+    if (isCompleted && isPaid && !isDeducted) {
+      const items = await db.prepare(
+        'SELECT product_id, quantity FROM order_items WHERE order_id = ?'
+      ).bind(orderId).all() as any;
+
+      if (items?.results && Array.isArray(items.results)) {
+        for (const item of items.results) {
+          if (!item.product_id || !item.quantity) continue;
+          const qty = Math.max(1, parseInt(item.quantity) || 1);
+
+          try {
+            await db.prepare(
+              'UPDATE products SET stock = MAX(0, stock - ?), total_sold = total_sold + ? WHERE id = ?'
+            ).bind(qty, qty, item.product_id).run();
+          } catch (e) {
+            await db.prepare(
+              'UPDATE products SET stock = stock - ?, total_sold = total_sold + ? WHERE id = ?'
+            ).bind(qty, qty, item.product_id).run();
+          }
+        }
+      }
+
+      await db.prepare('UPDATE orders SET inventory_deducted = 1 WHERE id = ?').bind(orderId).run();
+      console.log(`[STOCK DEDUCTED] Order #${orderId} stock deducted (status=completed, payment=paid).`);
+    }
+    // 2) Stock WAS deducted previously, but order is now cancelled or refunded -> Return stock & mark inventory_deducted = 0
+    else if (isDeducted && (order.status === 'cancelled' || order.status === 'refunded' || order.payment_status === 'refunded')) {
+      const items = await db.prepare(
+        'SELECT product_id, quantity FROM order_items WHERE order_id = ?'
+      ).bind(orderId).all() as any;
+
+      if (items?.results && Array.isArray(items.results)) {
+        for (const item of items.results) {
+          if (!item.product_id || !item.quantity) continue;
+          const qty = Math.max(1, parseInt(item.quantity) || 1);
+
+          try {
+            await db.prepare(
+              'UPDATE products SET stock = stock + ?, total_sold = MAX(0, total_sold - ?) WHERE id = ?'
+            ).bind(qty, qty, item.product_id).run();
+          } catch (e) {
+            await db.prepare(
+              'UPDATE products SET stock = stock + ?, total_sold = total_sold - ? WHERE id = ?'
+            ).bind(qty, qty, item.product_id).run();
+          }
+        }
+      }
+
+      await db.prepare('UPDATE orders SET inventory_deducted = 0 WHERE id = ?').bind(orderId).run();
+      console.log(`[STOCK RESTORED] Order #${orderId} stock restored (status=${order.status}, payment=${order.payment_status}).`);
+    }
+  } catch (err: any) {
+    console.error(`[STOCK ERROR] Failed to update stock for order #${orderId}:`, err);
+  }
+}
+
