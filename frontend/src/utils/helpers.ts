@@ -159,6 +159,11 @@ export function getImageUrl(url: string | null | undefined, fallback: string = D
     return cleanUrl;
   }
 
+  // Preserve static platform assets (/static/...)
+  if (cleanUrl.startsWith('/static/') || cleanUrl.startsWith('static/')) {
+    return cleanUrl.startsWith('/') ? cleanUrl : `/${cleanUrl}`;
+  }
+
   // Normalize relative paths (/uploads/..., storage/uploads/..., uploads/...)
   let relativePath = cleanUrl;
   if (relativePath.startsWith('/storage/')) {

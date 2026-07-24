@@ -191,10 +191,17 @@ const mimeTypes: Record<string, string> = {
 // Serve static files
 app.use('/static/*', async (c, next) => {
   const reqPath = c.req.path;
-  if (process.env.DATABASE_URL || typeof process !== 'undefined') {
+  const relPath = reqPath.replace(/^\/static\//, '');
+  const candidatePaths = [
+    path.join(process.cwd(), 'public', 'static', relPath),
+    path.join(process.cwd(), 'frontend', 'public', 'static', relPath),
+    path.join(process.cwd(), 'dist', 'static', relPath),
+    path.join(process.cwd(), 'frontend', 'dist', 'static', relPath),
+    path.join(__dirname, '..', 'public', 'static', relPath),
+  ];
+
+  for (const filePath of candidatePaths) {
     try {
-      const relPath = reqPath.replace(/^\/static\//, '');
-      const filePath = path.join(process.cwd(), 'public', 'static', relPath);
       const ext = path.extname(filePath).toLowerCase();
       const data = await fs.readFile(filePath);
       const contentType = mimeTypes[ext] || 'application/octet-stream';
@@ -202,15 +209,13 @@ app.use('/static/*', async (c, next) => {
         'Content-Type': contentType,
         'Cache-Control': 'public, max-age=86400'
       });
-    } catch (err) {
-      return c.text('File Not Found', 404);
-    }
+    } catch (e) {}
   }
 
   try {
     return await serveStaticCloudflare({ root: './public' })(c, next);
   } catch (e) {
-    return c.text('Not Found', 404);
+    return c.text('File Not Found', 404);
   }
 });
 const PLATFORM_SVG_FAVICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
