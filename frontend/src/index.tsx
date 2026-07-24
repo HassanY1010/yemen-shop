@@ -335,19 +335,21 @@ app.get('/offline.html', async (c) => {
   return c.html('<!DOCTYPE html><html lang="ar" dir="rtl"><head><title>غير متصل</title></head><body><h1>أنت غير متصل بالإنترنت</h1></body></html>');
 });
 
-async function servePwaIcon(c: any, contentType: string = 'image/png') {
+async function servePwaIcon(c: any, filename: string = 'pwa-icon.png', contentType: string = 'image/png') {
   const candidatePaths = [
-    path.join(process.cwd(), 'public', 'static', 'pwa', 'icon.png'),
-    path.join(process.cwd(), 'frontend', 'public', 'static', 'pwa', 'icon.png'),
-    path.join(process.cwd(), 'dist', 'static', 'pwa', 'icon.png'),
-    path.join(process.cwd(), 'frontend', 'dist', 'static', 'pwa', 'icon.png'),
+    path.join(process.cwd(), 'public', filename),
+    path.join(process.cwd(), 'frontend', 'public', filename),
+    path.join(process.cwd(), 'public', 'static', 'pwa', filename === 'pwa-icon.webp' ? 'icon.webp' : 'icon.png'),
+    path.join(process.cwd(), 'frontend', 'public', 'static', 'pwa', filename === 'pwa-icon.webp' ? 'icon.webp' : 'icon.png'),
+    path.join(process.cwd(), 'dist', filename),
+    path.join(process.cwd(), 'frontend', 'dist', filename),
   ];
   for (const p of candidatePaths) {
     try {
       const data = await fs.readFile(p);
       return c.body(data, 200, {
         'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=86400'
+        'Cache-Control': 'public, max-age=31536000, immutable'
       });
     } catch (e) {}
   }
@@ -355,10 +357,11 @@ async function servePwaIcon(c: any, contentType: string = 'image/png') {
 }
 
 // Dedicated Direct Official Icon Routes
-app.get('/pwa-icon.png', (c) => servePwaIcon(c, 'image/png'));
-app.get('/favicon.ico', (c) => servePwaIcon(c, 'image/x-icon'));
-app.get('/favicon.png', (c) => servePwaIcon(c, 'image/png'));
-app.get('/favicon.svg', (c) => servePwaIcon(c, 'image/svg+xml'));
+app.get('/pwa-icon.png', (c) => servePwaIcon(c, 'pwa-icon.png', 'image/png'));
+app.get('/pwa-icon.webp', (c) => servePwaIcon(c, 'pwa-icon.webp', 'image/webp'));
+app.get('/favicon.ico', (c) => servePwaIcon(c, 'favicon.ico', 'image/x-icon'));
+app.get('/favicon.png', (c) => servePwaIcon(c, 'pwa-icon.png', 'image/png'));
+app.get('/favicon.svg', (c) => servePwaIcon(c, 'pwa-icon.png', 'image/png'));
 app.get('/robots.txt', (c) => {
   const host = c.req.header('host') || 'localhost';
   const proto = host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https';
