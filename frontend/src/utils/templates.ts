@@ -14,7 +14,7 @@ export function baseLayout(
 ): string {
   const { scripts = '', styles = '', bodyClass = '', dir = 'rtl', headExtra = '', favicon = '' } = options;
 
-  const faviconUrl = favicon ? getImageUrl(favicon) : '/static/pwa/icon.png';
+  const faviconUrl = favicon ? getImageUrl(favicon) : '/pwa-icon.png';
   const faviconHtml = `<link rel="icon" type="image/png" href="${faviconUrl}"><link rel="shortcut icon" href="${faviconUrl}"><link rel="apple-touch-icon" href="${faviconUrl}">`;
 
   return `<!DOCTYPE html>
@@ -40,7 +40,7 @@ export function baseLayout(
     window.handleImgError = function(img, type) {
       img.onerror = null;
       if (type === 'logo') {
-        img.src = "/static/pwa/icon.png";
+        img.src = "/pwa-icon.png";
       } else if (type === 'avatar') {
         img.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Ccircle cx='100' cy='100' r='100' fill='%23e2e8f0'/%3E%3Ccircle cx='100' cy='75' r='35' fill='%2394a3b8'/%3E%3Cpath d='M30 170c0-35 30-50 70-50s70 15 70 50' fill='%2394a3b8'/%3E%3C/svg%3E";
       } else {

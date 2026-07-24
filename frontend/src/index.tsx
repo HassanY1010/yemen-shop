@@ -192,12 +192,13 @@ const mimeTypes: Record<string, string> = {
 app.use('/static/*', async (c, next) => {
   const reqPath = c.req.path;
   const relPath = reqPath.replace(/^\/static\//, '');
+  const baseDir = typeof __dirname !== 'undefined' ? __dirname : process.cwd();
   const candidatePaths = [
     path.join(process.cwd(), 'public', 'static', relPath),
     path.join(process.cwd(), 'frontend', 'public', 'static', relPath),
     path.join(process.cwd(), 'dist', 'static', relPath),
     path.join(process.cwd(), 'frontend', 'dist', 'static', relPath),
-    path.join(__dirname, '..', 'public', 'static', relPath),
+    path.join(baseDir, 'public', 'static', relPath),
   ];
 
   for (const filePath of candidatePaths) {
@@ -218,27 +219,30 @@ app.use('/static/*', async (c, next) => {
     return c.text('File Not Found', 404);
   }
 });
-const PLATFORM_SVG_FAVICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <defs>
-    <linearGradient id="favGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#4F46E5"/>
-      <stop offset="100%" stop-color="#7C3AED"/>
-    </linearGradient>
-    <linearGradient id="bagGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#ffffff"/>
-      <stop offset="100%" stop-color="#e0e7ff"/>
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" rx="128" fill="url(#favGrad)"/>
-  <path d="M160 192v-32c0-53 43-96 96-96s96 43 96 96v32h32c17.7 0 32 14.3 32 32l-16 224c-1.2 17.2-15.5 32-32.8 32H144.8c-17.3 0-31.6-14.8-32.8-32L96 224c0-17.7 14.3-32 32-32h32zm48 0h96v-32c0-26.5-21.5-48-48-48s-48 21.5-48 48v32z" fill="url(#bagGrad)"/>
-  <circle cx="370" cy="140" r="34" fill="#38EF7D"/>
-</svg>`;
 
-app.get('/manifest.json', (c) => c.text(manifestContent, 200, { 'Content-Type': 'application/json' }))
-app.get('/sw.js', (c) => c.text(swContent, 200, { 'Content-Type': 'application/javascript' }))
-app.get('/favicon.ico', (c) => c.redirect('/static/pwa/icon.png', 301))
-app.get('/favicon.svg', (c) => c.redirect('/static/pwa/icon.png', 301))
-app.get('/favicon.png', (c) => c.redirect('/static/pwa/icon.png', 301))
+// Dedicated Direct Official Icon Route
+app.get('/pwa-icon.png', async (c) => {
+  const candidatePaths = [
+    path.join(process.cwd(), 'public', 'static', 'pwa', 'icon.png'),
+    path.join(process.cwd(), 'frontend', 'public', 'static', 'pwa', 'icon.png'),
+    path.join(process.cwd(), 'dist', 'static', 'pwa', 'icon.png'),
+    path.join(process.cwd(), 'frontend', 'dist', 'static', 'pwa', 'icon.png'),
+  ];
+  for (const p of candidatePaths) {
+    try {
+      const data = await fs.readFile(p);
+      return c.body(data, 200, {
+        'Content-Type': 'image/png',
+        'Cache-Control': 'public, max-age=86400'
+      });
+    } catch (e) {}
+  }
+  return c.text('File Not Found', 404);
+});
+
+app.get('/favicon.ico', (c) => c.redirect('/pwa-icon.png', 301));
+app.get('/favicon.svg', (c) => c.redirect('/pwa-icon.png', 301));
+app.get('/favicon.png', (c) => c.redirect('/pwa-icon.png', 301));
 app.get('/robots.txt', (c) => {
   const host = c.req.header('host') || 'localhost';
   const proto = host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https';
@@ -299,7 +303,7 @@ app.get('/auth/login', async (c) => {
     <div class="w-full max-w-md">
       <div class="text-center mb-8">
         <div class="inline-flex items-center justify-center w-20 h-20 bg-white rounded-2xl shadow-2xl mb-4 p-2 overflow-hidden">
-          <img src="/static/pwa/icon.png" alt="منصة سوق اليمن" class="w-full h-full object-contain">
+          <img src="/pwa-icon.png" alt="منصة سوق اليمن" onerror="handleImgError(this, 'logo')" class="w-full h-full object-contain">
         </div>
         <h1 class="text-3xl font-bold text-white">منصة سوق اليمن</h1>
         <p class="text-primary-200 mt-1">أنشئ متجرك الإلكتروني</p>
