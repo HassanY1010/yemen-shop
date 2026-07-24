@@ -334,7 +334,12 @@ landing.get('/', async (c) => {
       </div>
     </div>
   </footer>
-  `));
+  `, {
+    ogTitle: `${platformName} - أنشئ متجرك الإلكتروني في اليمن بسهولة`,
+    ogDescription: 'منصة سوق اليمن - المنصة المتكاملة لإنشاء وإدارة المتاجر الإلكترونية في اليمن، دعم الدفع عبر البنوك المحلية وتتبع الطلبات مجاناً.',
+    ogImage: '/pwa-icon.png',
+    ogUrl: 'https://yemen-shop.onrender.com/'
+  }));
 });
 
 export default landing;

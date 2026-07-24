@@ -10,9 +10,24 @@ export function baseLayout(
     dir?: 'rtl' | 'ltr';
     headExtra?: string;
     favicon?: string;
+    ogTitle?: string;
+    ogDescription?: string;
+    ogImage?: string;
+    ogUrl?: string;
   } = {}
 ): string {
-  const { scripts = '', styles = '', bodyClass = '', dir = 'rtl', headExtra = '', favicon = '' } = options;
+  const {
+    scripts = '',
+    styles = '',
+    bodyClass = '',
+    dir = 'rtl',
+    headExtra = '',
+    favicon = '',
+    ogTitle = '',
+    ogDescription = '',
+    ogImage = '',
+    ogUrl = ''
+  } = options;
 
   const faviconUrl = favicon ? getImageUrl(favicon) : '/pwa-icon.png';
   const faviconHtml = `
@@ -21,12 +36,55 @@ export function baseLayout(
   <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico">
   <link rel="apple-touch-icon" href="${faviconUrl}">`;
 
+  // Absolute URL formatting helper for WhatsApp / Facebook / Open Graph crawlers
+  const SITE_BASE_URL = 'https://yemen-shop.onrender.com';
+  
+  const pageTitle = ogTitle || `${title} - منصة سوق اليمن`;
+  const pageDescription = ogDescription || 'منصة سوق اليمن - المنصة الرائدة لإنشاء وإدارة المتاجر الإلكترونية في اليمن بكل سهولة ودعم التحويلات البنكية المحلية.';
+  
+  let pageImage = ogImage || favicon || '/pwa-icon.png';
+  pageImage = getImageUrl(pageImage);
+  if (pageImage.startsWith('/')) {
+    pageImage = SITE_BASE_URL + pageImage;
+  }
+  
+  let pageUrl = ogUrl || SITE_BASE_URL;
+  if (pageUrl.startsWith('/')) {
+    pageUrl = SITE_BASE_URL + pageUrl;
+  }
+
+  const ogMetaTags = `
+  <!-- SEO & Primary Meta Tags -->
+  <meta name="title" content="${pageTitle}">
+  <meta name="description" content="${pageDescription}">
+
+  <!-- Open Graph / Facebook / WhatsApp Meta Tags -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="منصة سوق اليمن">
+  <meta property="og:url" content="${pageUrl}">
+  <meta property="og:title" content="${pageTitle}">
+  <meta property="og:description" content="${pageDescription}">
+  <meta property="og:image" content="${pageImage}">
+  <meta property="og:image:secure_url" content="${pageImage}">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+
+  <!-- Twitter Meta Tags -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="${pageUrl}">
+  <meta name="twitter:title" content="${pageTitle}">
+  <meta name="twitter:description" content="${pageDescription}">
+  <meta name="twitter:image" content="${pageImage}">
+  `;
+
   return `<!DOCTYPE html>
 <html lang="ar" dir="${dir}" class="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${title} - منصة سوق اليمن</title>
+  ${ogMetaTags}
   ${faviconHtml}
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">

@@ -155,7 +155,8 @@ function storeLayout(
   storeData: any,
   customer: any = null,
   scripts: string = '',
-  headExtra: string = ''
+  headExtra: string = '',
+  metaOptions: { ogTitle?: string; ogDescription?: string; ogImage?: string; ogUrl?: string } = {}
 ): string {
   const primary = storeData.primary_color || '#4F46E5';
   const secondary = storeData.secondary_color || '#818CF8';
@@ -893,7 +894,11 @@ function storeLayout(
   ${scripts ? `<script>\n${scripts}\n  </script>` : ''}
     `,
     headExtra: combinedHead,
-    favicon: storeData.favicon
+    favicon: storeData.logo || storeData.favicon || DEFAULT_STORE_LOGO,
+    ogTitle: metaOptions.ogTitle || `${storeName} - منصة سوق اليمن`,
+    ogDescription: metaOptions.ogDescription || storeData.description || `تصفح أحدث المنتجات واطلب مباشرة من متجر ${storeName} عبر منصة سوق اليمن.`,
+    ogImage: metaOptions.ogImage || storeData.logo || DEFAULT_STORE_LOGO,
+    ogUrl: metaOptions.ogUrl || `/store/${storeData.slug}`
   });
 }
 
@@ -1437,7 +1442,7 @@ store.get('/:slug/products/:id', async (c) => {
   </script>
   `;
 
-  return c.html(storeLayout(product.name, `
+  const detailHtml = `
   <div class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
     <!-- Breadcrumb -->
     <nav class="flex items-center gap-2 text-sm text-mute mb-6">
@@ -1694,8 +1699,9 @@ store.get('/:slug/products/:id', async (c) => {
         }).join('')}
       </div>
     </section>` : ''}
-  </div>
-  `, storeData, customer, `
+  </div>`;
+
+  const scripts = `
     // ── Flash Sale Countdown ──
     const timer = document.getElementById('flashSaleTimer');
     if (timer) {
@@ -1858,10 +1864,20 @@ store.get('/:slug/products/:id', async (c) => {
       } catch(err) {
         btn.disabled = false;
         btn.innerHTML = 'إرسال التقييم';
-        showToast(err.message || 'فشل إرسال التقييم', 'error');
       }
     });
-  `, headExtra));
+  `;
+
+  const cleanDescription = product.description 
+    ? product.description.replace(/<[^>]*>?/gm, '').trim().substring(0, 160) 
+    : `اشتري ${product.name} بسعر ${product.price} ${storeData.currency} من متجر ${storeName}.`;
+
+  return c.html(storeLayout(storeName, detailHtml, storeData, customer, scripts, headExtra, {
+    ogTitle: `${product.name} - ${storeName}`,
+    ogDescription: cleanDescription,
+    ogImage: mainImage || storeData.logo || DEFAULT_STORE_LOGO,
+    ogUrl: `/store/${slug}/products/${product.id}`
+  }));
 });
 
 // ─── Order Tracking Page ──────────────────────────────────────
