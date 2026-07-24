@@ -264,7 +264,7 @@ app.use('/static/*', async (c, next) => {
 });
 
 // Service Worker & Web Manifest Direct Routes
-app.get('/manifest.json', async (c) => {
+const handleManifestRequest = async (c: any) => {
   const candidatePaths = [
     path.join(process.cwd(), 'public', 'manifest.json'),
     path.join(process.cwd(), 'frontend', 'public', 'manifest.json'),
@@ -274,26 +274,65 @@ app.get('/manifest.json', async (c) => {
   for (const p of candidatePaths) {
     try {
       const data = await fs.readFile(p, 'utf-8');
-      return c.text(data, 200, { 'Content-Type': 'application/json' });
+      return c.text(data, 200, {
+        'Content-Type': 'application/manifest+json; charset=utf-8',
+        'Cache-Control': 'public, max-age=3600'
+      });
     } catch (e) {}
   }
-  return c.text(typeof manifestContent === 'string' ? manifestContent : '{}', 200, { 'Content-Type': 'application/json' });
-});
+  return c.text(typeof manifestContent === 'string' ? manifestContent : '{}', 200, {
+    'Content-Type': 'application/manifest+json; charset=utf-8',
+    'Cache-Control': 'public, max-age=3600'
+  });
+};
 
-app.get('/sw.js', async (c) => {
+app.get('/manifest.json', handleManifestRequest);
+app.get('/site.webmanifest', handleManifestRequest);
+
+const handleSwRequest = async (c: any) => {
   const candidatePaths = [
     path.join(process.cwd(), 'public', 'sw.js'),
     path.join(process.cwd(), 'frontend', 'public', 'sw.js'),
+    path.join(process.cwd(), 'public', 'service-worker.js'),
+    path.join(process.cwd(), 'frontend', 'public', 'service-worker.js'),
     path.join(process.cwd(), 'dist', 'sw.js'),
     path.join(process.cwd(), 'frontend', 'dist', 'sw.js'),
   ];
   for (const p of candidatePaths) {
     try {
       const data = await fs.readFile(p, 'utf-8');
-      return c.text(data, 200, { 'Content-Type': 'application/javascript' });
+      return c.text(data, 200, {
+        'Content-Type': 'application/javascript; charset=utf-8',
+        'Service-Worker-Allowed': '/',
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
+      });
     } catch (e) {}
   }
-  return c.text(typeof swContent === 'string' ? swContent : '// sw', 200, { 'Content-Type': 'application/javascript' });
+  return c.text(typeof swContent === 'string' ? swContent : '// sw', 200, {
+    'Content-Type': 'application/javascript; charset=utf-8',
+    'Service-Worker-Allowed': '/',
+    'Cache-Control': 'no-cache, no-store, must-revalidate'
+  });
+};
+
+app.get('/sw.js', handleSwRequest);
+app.get('/service-worker.js', handleSwRequest);
+app.get('/serviceworker.js', handleSwRequest);
+
+app.get('/offline.html', async (c) => {
+  const candidatePaths = [
+    path.join(process.cwd(), 'public', 'offline.html'),
+    path.join(process.cwd(), 'frontend', 'public', 'offline.html'),
+    path.join(process.cwd(), 'dist', 'offline.html'),
+    path.join(process.cwd(), 'frontend', 'dist', 'offline.html'),
+  ];
+  for (const p of candidatePaths) {
+    try {
+      const data = await fs.readFile(p, 'utf-8');
+      return c.html(data);
+    } catch (e) {}
+  }
+  return c.html('<!DOCTYPE html><html lang="ar" dir="rtl"><head><title>غير متصل</title></head><body><h1>أنت غير متصل بالإنترنت</h1></body></html>');
 });
 
 async function servePwaIcon(c: any, contentType: string = 'image/png') {

@@ -21,7 +21,6 @@ const PRECACHE_ASSETS = [
   'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js'
 ];
 
-// ── Install: Pre-cache core shell & offline assets ────────────
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
@@ -37,7 +36,6 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// ── Activate: Clean obsolete cache versions ───────────────────
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
@@ -50,7 +48,6 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// ── Fetch: Smart Strategy for Offline & Caching ───────────────
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   let url;
@@ -60,13 +57,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Guard against non-HTTP/HTTPS schemes
   if (!url.protocol.startsWith('http')) return;
-
-  // Ignore non-GET methods
   if (req.method !== 'GET') return;
 
-  // 1. Navigation Requests (HTML Pages) -> Network-First with Offline Fallback
   const isHTMLRequest = req.mode === 'navigate' ||
                         req.headers.get('accept')?.includes('text/html') ||
                         url.pathname === '/' ||
@@ -96,7 +89,6 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2. API Requests -> Network-First with API Cache Fallback
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
       fetch(req)
@@ -112,7 +104,6 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3. Static Assets (CSS, JS, Fonts, Images) -> Cache-First with Network Fallback
   event.respondWith(
     caches.match(req).then(cachedRes => {
       if (cachedRes) return cachedRes;
@@ -127,7 +118,6 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// ── Push Notifications ────────────────────────────────────────
 self.addEventListener('push', (event) => {
   if (!event.data) return;
   try {

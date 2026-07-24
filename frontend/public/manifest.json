@@ -1,7 +1,8 @@
 {
-  "name": "منصة سوق اليمن",
+  "id": "/",
+  "name": "منصة سوق اليمن - متجرك الإلكتروني",
   "short_name": "سوق اليمن",
-  "description": "منصة التجارة الإلكترونية الشاملة - إدارة متجرك بكل سهولة",
+  "description": "منصة التجارة الإلكترونية الشاملة - أنشئ متجرك الإلكتروني وأدر مبيعاتك بكل سهولة ⚡",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -10,33 +11,53 @@
   "theme_color": "#4F46E5",
   "lang": "ar",
   "dir": "rtl",
-  "categories": ["business", "shopping"],
+  "categories": ["business", "shopping", "utilities"],
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/pwa-icon.png",
-      "sizes": "512x512",
+      "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "/pwa-icon.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "maskable"
+    },
+    {
+      "src": "/pwa-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "shortcuts": [
     {
+      "name": "لوحة التحكم",
+      "short_name": "اللوحة",
+      "description": "الانتقال إلى لوحة تحكم المتجر",
+      "url": "/dashboard",
+      "icons": [{ "src": "/pwa-icon.png", "sizes": "192x192" }]
+    },
+    {
       "name": "الطلبات الجديدة",
       "short_name": "الطلبات",
-      "description": "عرض آخر الطلبات",
+      "description": "عرض ومتابعة الطلبات",
       "url": "/dashboard/orders",
       "icons": [{ "src": "/pwa-icon.png", "sizes": "192x192" }]
     },
     {
-      "name": "المنتجات",
+      "name": "إدارة المنتجات",
       "short_name": "المنتجات",
-      "description": "إدارة المنتجات",
+      "description": "عرض وإضافة المنتجات",
       "url": "/dashboard/products",
       "icons": [{ "src": "/pwa-icon.png", "sizes": "192x192" }]
     }

@@ -32,10 +32,18 @@ export function baseLayout(
   const faviconVersion = '?v=2026';
   const faviconUrl = favicon ? getImageUrl(favicon) : ('/pwa-icon.png' + faviconVersion);
   const faviconHtml = `
-  <link rel="icon" type="image/png" sizes="32x32" href="${faviconUrl}">
+  <!-- PWA & Mobile Meta Tags -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#4F46E5">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="سوق اليمن">
+  <meta name="application-name" content="سوق اليمن">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico${faviconVersion}">
   <link rel="icon" type="image/png" sizes="192x192" href="${faviconUrl}">
-  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico${faviconVersion}">
-  <link rel="apple-touch-icon" href="${faviconUrl}">`;
+  <link rel="icon" type="image/png" sizes="512x512" href="${faviconUrl}">
+  <link rel="apple-touch-icon" sizes="180x180" href="${faviconUrl}">`;
 
   // Absolute URL formatting helper for WhatsApp / Facebook / Open Graph crawlers
   const SITE_BASE_URL = 'https://yemen-shop.onrender.com';
@@ -576,10 +584,24 @@ export function baseLayout(
       return function(...args) { clearTimeout(t); t = setTimeout(() => fn.apply(this, args), delay); };
     }
 
-    // ── Service Worker (PWA) ──
+    // ── Service Worker (PWA 100/100 Compliance) ──
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').catch(() => {});
+        navigator.serviceWorker.register('/sw.js', { scope: '/' })
+          .then((reg) => {
+            console.log('[PWA] Service Worker registered successfully with scope:', reg.scope);
+            reg.onupdatefound = () => {
+              const installingWorker = reg.installing;
+              if (installingWorker) {
+                installingWorker.onstatechange = () => {
+                  if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    console.log('[PWA] New version detected.');
+                  }
+                };
+              }
+            };
+          })
+          .catch((err) => console.warn('[PWA SW Register Error]', err));
       });
     }
 
