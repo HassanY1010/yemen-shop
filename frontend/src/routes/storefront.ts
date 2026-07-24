@@ -499,11 +499,13 @@ function storeLayout(
     
     function saveCart() { localStorage.setItem('cart_${storeData.slug}', JSON.stringify(cart)); }
     
-    function addToCart(id, name, price, image, variant = '') {
+    function addToCart(id, name, price, image, variant = '', addQty = 1) {
+      if (!id) return;
+      const numQty = parseInt(addQty) || 1;
       const cartKey = id + (variant ? '_' + variant : '');
       const existing = cart.find(i => (i.cartKey || i.id) === cartKey);
-      if (existing) { existing.qty++; } 
-      else { cart.push({ cartKey, id, name, price, image, qty: 1, variant }); }
+      if (existing) { existing.qty += numQty; } 
+      else { cart.push({ cartKey, id, name, price, image, qty: numQty, variant }); }
       saveCart();
       updateCartUI();
       openCart();
@@ -530,21 +532,23 @@ function storeLayout(
 
     function updateCartUI() {
       const count = cart.reduce((sum, i) => sum + i.qty, 0);
-      const badge = document.getElementById('cartBadge');
-      if (badge) {
-        badge.textContent = count;
-        badge.classList.toggle('hidden', count === 0);
-      }
+      ['cartBadge', 'mobileCartBadge', 'headerCartBadge'].forEach(bId => {
+        const badge = document.getElementById(bId);
+        if (badge) {
+          badge.textContent = count;
+          badge.classList.toggle('hidden', count === 0);
+        }
+      });
       
       const cartItems = document.getElementById('cartItems');
       if (cartItems) {
         if (cart.length === 0) {
-          cartItems.innerHTML = '<div class="text-center py-12 text-mute"><i class="fas fa-shopping-cart text-4xl mb-3 block"></i><p>السلة فارغة</p></div>';
+          cartItems.innerHTML = '<div class="text-center py-12 text-mute"><i class="fas fa-shopping-cart text-4xl mb-3 block opacity-30"></i><p class="font-medium">السلة فارغة</p></div>';
         } else {
           cartItems.innerHTML = cart.map(item => {
             const key = item.cartKey || item.id;
             return \`
-            <div class="flex items-center gap-3 bg-page rounded-xl p-3">
+            <div class="flex items-center gap-3 bg-page rounded-xl p-3 border border-std">
               <img src="\${item.image || ''}" alt="\${item.name}" 
                    class="w-14 h-14 object-cover rounded-lg flex-shrink-0"
                    onerror="handleImgError(this)">
@@ -571,14 +575,20 @@ function storeLayout(
 
     function openCart() {
       const sidebar = document.getElementById('cartSidebar');
-      if (sidebar) sidebar.style.transform = 'translateX(0)';
-      document.getElementById('cartOverlay')?.classList.remove('hidden');
+      const overlay = document.getElementById('cartOverlay');
+      if (sidebar) {
+        sidebar.classList.remove('hidden');
+        sidebar.style.transform = 'translateX(0)';
+      }
+      if (overlay) overlay.classList.remove('hidden');
+      updateCartUI();
     }
     
     function closeCart() {
       const sidebar = document.getElementById('cartSidebar');
+      const overlay = document.getElementById('cartOverlay');
       if (sidebar) sidebar.style.transform = 'translateX(-100%)';
-      document.getElementById('cartOverlay')?.classList.add('hidden');
+      if (overlay) overlay.classList.add('hidden');
     }
 
     let appliedCoupon = null; // { coupon_id, discount, code }
@@ -1712,8 +1722,9 @@ store.get('/:slug/products/:id', async (c) => {
     }
 
     // ── Product Variants Selection ──
-    window.selectedVariants = {};
+    if (!window.selectedVariants) window.selectedVariants = {};
     function selectVariant(btn, type, value, modifier, stock, sku) {
+      if (!window.selectedVariants) window.selectedVariants = {};
       const group = btn.closest('.variant-group');
       if (group) {
         group.querySelectorAll('.variant-btn').forEach(b => {
@@ -1729,6 +1740,16 @@ store.get('/:slug/products/:id', async (c) => {
       if (typeof window.updateDynamicPriceAndSku === 'function') window.updateDynamicPriceAndSku();
     }
     window.selectVariant = selectVariant;
+
+    // Auto-select first variant in each group on page load
+    setTimeout(() => {
+      document.querySelectorAll('.variant-group').forEach(group => {
+        const firstBtn = group.querySelector('.variant-btn');
+        if (firstBtn && !window.selectedVariants[group.dataset.type]) {
+          firstBtn.click();
+        }
+      });
+    }, 50);
 
     function updateDynamicPriceAndSku() {
       const basePrice = ${price};
@@ -1756,6 +1777,7 @@ store.get('/:slug/products/:id', async (c) => {
     window.updateDynamicPriceAndSku = updateDynamicPriceAndSku;
 
     function addToCartMultiple() {
+      if (!window.selectedVariants) window.selectedVariants = {};
       const qtyEl = document.getElementById('qty');
       const qty = qtyEl ? (parseInt(qtyEl.value) || 1) : 1;
       
@@ -1767,7 +1789,13 @@ store.get('/:slug/products/:id', async (c) => {
       });
 
       if (missing.length > 0) {
-        return showToast('يرجى تحديد: ' + missing.join('، '), 'warning');
+        const firstMissingGroup = document.querySelector('.variant-group[data-type="' + missing[0] + '"]');
+        const firstBtn = firstMissingGroup ? firstMissingGroup.querySelector('.variant-btn') : null;
+        if (firstBtn) {
+          firstBtn.click();
+        } else {
+          return showToast('يرجى تحديد: ' + missing.join('، '), 'warning');
+        }
       }
 
       const variantStr = Object.entries(window.selectedVariants || {}).map(([type, v]) => type + ': ' + v.value).join('، ');
@@ -1778,8 +1806,11 @@ store.get('/:slug/products/:id', async (c) => {
         finalPrice += v.modifier;
       });
 
-      for (let i = 0; i < qty; i++) {
-        (window.addToCart || addToCart)(${product.id}, ${JSON.stringify(product.name)}, finalPrice, ${JSON.stringify(mainImage || '')}, variantStr);
+      const addFn = window.addToCart || (typeof addToCart !== 'undefined' ? addToCart : null);
+      if (typeof addFn === 'function') {
+        addFn(${product.id}, ${JSON.stringify(product.name)}, finalPrice, ${JSON.stringify(mainImage || '')}, variantStr, qty);
+      } else {
+        console.error('addToCart is not defined');
       }
     }
     window.addToCartMultiple = addToCartMultiple;
