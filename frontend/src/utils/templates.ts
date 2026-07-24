@@ -14,10 +14,8 @@ export function baseLayout(
 ): string {
   const { scripts = '', styles = '', bodyClass = '', dir = 'rtl', headExtra = '', favicon = '' } = options;
 
-  const faviconUrl = favicon ? getImageUrl(favicon) : '';
-  const faviconHtml = faviconUrl
-    ? `<link rel="icon" href="${faviconUrl}"><link rel="shortcut icon" href="${faviconUrl}"><link rel="apple-touch-icon" href="${faviconUrl}">`
-    : `<link rel="icon" type="image/svg+xml" href="/favicon.svg"><link rel="shortcut icon" href="/favicon.ico"><link rel="apple-touch-icon" href="/favicon.svg">`;
+  const faviconUrl = favicon ? getImageUrl(favicon) : '/static/pwa/icon.png';
+  const faviconHtml = `<link rel="icon" type="image/png" href="${faviconUrl}"><link rel="shortcut icon" href="${faviconUrl}"><link rel="apple-touch-icon" href="${faviconUrl}">`;
 
   return `<!DOCTYPE html>
 <html lang="ar" dir="${dir}" class="light">
@@ -42,7 +40,7 @@ export function baseLayout(
     window.handleImgError = function(img, type) {
       img.onerror = null;
       if (type === 'logo') {
-        img.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' rx='40' fill='%234f46e5'/%3E%3Cpath d='M60 70v-10c0-22 18-40 40-40s40 18 40 40v10h10c8 0 15 7 15 15l-10 80c-1 8-7 15-15 15H60c-8 0-14-7-15-15L35 85c0-8 7-15 15-15h10zm20 0h40v-10c0-11-9-20-20-20s-20 9-20 20v10z' fill='%23ffffff'/%3E%3C/svg%3E";
+        img.src = "/static/pwa/icon.png";
       } else if (type === 'avatar') {
         img.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Ccircle cx='100' cy='100' r='100' fill='%23e2e8f0'/%3E%3Ccircle cx='100' cy='75' r='35' fill='%2394a3b8'/%3E%3Cpath d='M30 170c0-35 30-50 70-50s70 15 70 50' fill='%2394a3b8'/%3E%3C/svg%3E";
       } else {

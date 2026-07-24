@@ -122,7 +122,7 @@ export function sanitizeInput(input: string): string {
 
 export const DEFAULT_PRODUCT_IMAGE = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Crect width='400' height='400' fill='%23f1f5f9'/%3E%3Cpath d='M160 160c0-22.1 17.9-40 40-40s40 17.9 40 40-17.9 40-40 40-40-17.9-40-40zm120 120H120l50-65 35 45 25-30 50 50z' fill='%2394a3b8'/%3E%3Ctext x='50%25' y='82%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='16' font-weight='bold' fill='%2364748b'%3Eصورة غير متوفرة%3C/text%3E%3C/svg%3E`;
 
-export const DEFAULT_STORE_LOGO = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' rx='40' fill='%234f46e5'/%3E%3Cpath d='M60 70v-10c0-22 18-40 40-40s40 18 40 40v10h10c8 0 15 7 15 15l-10 80c-1 8-7 15-15 15H60c-8 0-14-7-15-15L35 85c0-8 7-15 15-15h10zm20 0h40v-10c0-11-9-20-20-20s-20 9-20 20v10z' fill='%23ffffff'/%3E%3C/svg%3E`;
+export const DEFAULT_STORE_LOGO = '/static/pwa/icon.png';
 
 export const DEFAULT_AVATAR = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Ccircle cx='100' cy='100' r='100' fill='%23e2e8f0'/%3E%3Ccircle cx='100' cy='75' r='35' fill='%2394a3b8'/%3E%3Cpath d='M30 170c0-35 30-50 70-50s70 15 70 50' fill='%2394a3b8'/%3E%3C/svg%3E`;
 

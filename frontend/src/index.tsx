@@ -231,8 +231,9 @@ const PLATFORM_SVG_FAVICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0
 
 app.get('/manifest.json', (c) => c.text(manifestContent, 200, { 'Content-Type': 'application/json' }))
 app.get('/sw.js', (c) => c.text(swContent, 200, { 'Content-Type': 'application/javascript' }))
-app.get('/favicon.ico', (c) => c.text(PLATFORM_SVG_FAVICON, 200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=86400' }))
-app.get('/favicon.svg', (c) => c.text(PLATFORM_SVG_FAVICON, 200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=86400' }))
+app.get('/favicon.ico', (c) => c.redirect('/static/pwa/icon.png', 301))
+app.get('/favicon.svg', (c) => c.redirect('/static/pwa/icon.png', 301))
+app.get('/favicon.png', (c) => c.redirect('/static/pwa/icon.png', 301))
 app.get('/robots.txt', (c) => {
   const host = c.req.header('host') || 'localhost';
   const proto = host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https';
@@ -278,12 +279,6 @@ app.get('/sitemap.xml', async (c) => {
 
   return c.text(xml, 200, { 'Content-Type': 'application/xml' });
 });
-app.get('/favicon.ico', (c) => {
-  return c.body(null, 204)
-})
-
-
-
 // ─── Auth Pages ────────────────────────────────────────────────
 app.get('/auth/login', async (c) => {
   const { baseLayout } = await import('./utils/templates')
@@ -298,8 +293,8 @@ app.get('/auth/login', async (c) => {
   <div class="min-h-screen bg-gradient-to-br from-primary-600 via-primary-700 to-purple-800 flex items-center justify-center p-4">
     <div class="w-full max-w-md">
       <div class="text-center mb-8">
-        <div class="inline-flex items-center justify-center w-20 h-20 bg-white rounded-2xl shadow-2xl mb-4">
-          <i class="fas fa-store text-primary-600 text-3xl"></i>
+        <div class="inline-flex items-center justify-center w-20 h-20 bg-white rounded-2xl shadow-2xl mb-4 p-2 overflow-hidden">
+          <img src="/static/pwa/icon.png" alt="منصة سوق اليمن" class="w-full h-full object-contain">
         </div>
         <h1 class="text-3xl font-bold text-white">منصة سوق اليمن</h1>
         <p class="text-primary-200 mt-1">أنشئ متجرك الإلكتروني</p>

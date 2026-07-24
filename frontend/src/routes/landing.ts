@@ -68,9 +68,7 @@ landing.get('/', async (c) => {
   <nav class="bg-white/95 backdrop-blur-sm sticky top-0 z-50 border-b border-gray-100 shadow-sm">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center">
-          <i class="fas fa-store text-white text-lg"></i>
-        </div>
+        <img src="/static/pwa/icon.png" alt="${platformName}" class="w-10 h-10 object-contain rounded-xl shadow-md border border-gray-100 p-0.5 bg-white">
         <span class="text-2xl font-black text-gray-800">${platformName}</span>
       </div>
       <div class="hidden md:flex items-center gap-6 text-sm font-medium text-gray-600">

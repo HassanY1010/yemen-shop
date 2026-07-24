@@ -1,9 +1,9 @@
 {
-  "name": "سوق - لوحة التحكم",
-  "short_name": "سوق",
-  "description": "إدارة متجرك الإلكتروني من أي مكان",
-  "start_url": "/dashboard",
-  "scope": "/dashboard",
+  "name": "منصة سوق اليمن",
+  "short_name": "سوق اليمن",
+  "description": "منصة التجارة الإلكترونية الشاملة - إدارة متجرك بكل سهولة",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#0f172a",
@@ -12,6 +12,12 @@
   "dir": "rtl",
   "categories": ["business", "shopping"],
   "icons": [
+    {
+      "src": "/static/pwa/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
     {
       "src": "/static/pwa/icon-192.png",
       "sizes": "192x192",
