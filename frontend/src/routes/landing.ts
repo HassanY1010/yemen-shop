@@ -29,7 +29,7 @@ landing.get('/', async (c) => {
   }
 
   let platformName = 'منصة سوق اليمن';
-  let supportEmail = 'support@platform.com';
+  let supportEmail = 'hassanmohammedbarafah836@gmail.com';
   let supportWhatsapp = '+967776461892';
   let plans: any[] = [];
   let stores: any[] = [];

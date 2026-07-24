@@ -1584,7 +1584,7 @@ admin.get('/settings', async (c) => {
   } catch (e) {}
 
   const platformName = settingsMap['platform_name'] || 'منصة سوق اليمن';
-  const supportEmail = settingsMap['support_email'] || 'support@platform.com';
+  const supportEmail = settingsMap['support_email'] || 'hassanmohammedbarafah836@gmail.com';
   const supportWhatsapp = settingsMap['support_whatsapp'] || '+967776461892';
   const defaultCurrency = settingsMap['default_currency'] || 'YER';
   const allowRegistrations = settingsMap['allow_registrations'] !== 'false' ? 'true' : 'false';

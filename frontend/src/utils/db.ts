@@ -382,6 +382,7 @@ async function syncPgTables(pool: any) {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
       INSERT INTO platform_settings (key, value) VALUES ('support_whatsapp', '+967776461892') ON CONFLICT (key) DO NOTHING;
+      INSERT INTO platform_settings (key, value) VALUES ('support_email', 'hassanmohammedbarafah836@gmail.com') ON CONFLICT (key) DO UPDATE SET value = 'hassanmohammedbarafah836@gmail.com';
 
       CREATE TABLE IF NOT EXISTS sessions (
         id VARCHAR(255) PRIMARY KEY,
